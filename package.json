@@ -1,0 +1,41 @@
+{
+  "name": "load-balancer",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "bun run cross-env PORT=4269 next dev",
+    "start": "bun run cross-env PORT=4269 next start",
+    "build": "bun run next build",
+    "lint": "bun run next lint",
+    "migrate:db": "bunx tsx scripts/migrate-json-to-db.js",
+    "generate:env": "bunx tsx scripts/generate-env.js"
+  },
+  "dependencies": {
+    "@chakra-ui/next-js": "^2.2.0",
+    "@chakra-ui/react": "^2.8.2",
+    "@types/uuid": "^10.0.0",
+    "async-mutex": "^0.5.0",
+    "axios": "^1.8.1",
+    "iron-session": "^8.0.4",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-icons": "^5.0.1",
+    "recharts": "^2.10.4",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7",
+    "uuid": "^11.1.0",
+    "winston": "^3.17.0",
+    "winston-daily-rotate-file": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "@types/react": "^18.2.48",
+    "autoprefixer": "^10.4.17",
+    "cross-env": "^7.0.3",
+    "next": "^14.2.26",
+    "postcss": "^8.4.33",
+    "tailwindcss": "^3.4.1",
+    "tsx": "^4.19.3",
+    "typescript": "^5.3.3"
+  }
+}
