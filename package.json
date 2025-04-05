@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "bun run cross-env PORT=4269 next dev",
-    "start": "bun run cross-env PORT=4269 next start",
+    "dev": "PORT=4269 bun run next dev",
+    "start": "PORT=4269 bun run next start",
     "build": "bun run next build",
     "lint": "bun run next lint",
     "migrate:db": "bunx tsx scripts/migrate-json-to-db.js",
@@ -32,7 +32,7 @@
     "@types/node": "^20.11.5",
     "@types/react": "^18.2.48",
     "autoprefixer": "^10.4.17",
-    "cross-env": "^7.0.3",
+
     "next": "^14.2.26",
     "postcss": "^8.4.33",
     "tailwindcss": "^3.4.1",

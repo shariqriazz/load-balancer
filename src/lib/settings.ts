@@ -72,11 +72,7 @@ export async function writeSettings(settings: Settings): Promise<void> {
 }
 
 // Function to explicitly clear the cache if needed (e.g., after manual DB change)
-export function clearSettingsCache(): void {
-    cachedSettings = null;
-    lastReadTime = null;
-    console.log('Settings cache cleared.');
-}
+
 
 // Re-export the Settings type for consumers of this module
 export type { Settings };

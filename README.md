@@ -62,10 +62,6 @@ The application requires minimal configuration:
 2. Set the necessary environment variables. The `.env.example` file provides comments explaining each variable. Here's an example structure:
 
 ```env
-# Server Configuration
-# The port number the application will run on
-PORT=4265
-
 # Admin Login
 # Password to access the admin dashboard
 ADMIN_PASSWORD=your_secret_admin_password_here # Example: iwfgQ4Qx3YgCzL4KDO0ZXKB5AQwRXk51
@@ -83,6 +79,8 @@ REQUIRE_ADMIN_LOGIN=true
 # Leave blank to skip this specific incoming authentication check.
 MASTER_API_KEY=
 ```
+
+Note: The application runs on port 4269 by default. If you need to change the port, you can modify it in the package.json scripts.
 
 Note: OpenAI Comptaible API keys and rotation settings are managed through the UI (stored in the `data/database.db` SQLite database), not directly in the `.env` file.
 
