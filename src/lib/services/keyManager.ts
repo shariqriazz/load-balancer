@@ -36,22 +36,16 @@ class KeyManager {
       const now = new Date();
       const todayLocalString = now.toLocaleDateString('en-CA'); // YYYY-MM-DD format for local date
 
-      // Use 'as any' to bypass strict type checking for the $or clause,
-      // as the underlying ApiKey.findAll implementation handles this specific structure.
-      let availableKeys = await ApiKey.findAll({
-        isActive: true, // Must be generally active
-        isDisabledByRateLimit: false, // Must not be disabled by daily limit
-        $or: [ // Must not be in global rate limit cooldown
-          { rateLimitResetAt: null },
-          { rateLimitResetAt: { $lte: now.toISOString() } }
-        ]
-      } as any); // <-- Type assertion added here
+      // --- FIRST: Check ALL active keys for daily resets, even rate-limited ones ---
+      const allActiveKeys = await ApiKey.findAll({
+        isActive: true // Only filter for generally active keys
+      });
 
       // --- Daily Reset Logic ---
       let keysWereReset = false; // Flag to track if any key was updated
       const updatedKeysMap = new Map<string, ApiKey>(); // Store updated keys by ID
 
-      for (const key of availableKeys) {
+      for (const key of allActiveKeys) {
         const lastReset = key.lastResetDate ? new Date(key.lastResetDate) : null;
         let needsUpdate = false;
 
@@ -75,16 +69,22 @@ class KeyManager {
             updatedKeysMap.set(key._id, key); // Store the updated key instance
         }
       }
+      
       // If any keys were reset, perform a single bulk write
-      // If any keys were reset, perform a single bulk write using the new static method
       if (keysWereReset) {
           await ApiKey.bulkUpdate(updatedKeysMap);
-
-          // Update the 'availableKeys' list in memory to reflect the changes
-          // This avoids needing another full DB read right away
-          availableKeys = availableKeys.map(key => updatedKeysMap.get(key._id) || key);
       }
       // --- End Daily Reset Logic ---
+
+      // --- NOW: Get available keys for use (after potential resets) ---
+      let availableKeys = await ApiKey.findAll({
+        isActive: true, // Must be generally active
+        isDisabledByRateLimit: false, // Must not be disabled by daily limit
+        $or: [ // Must not be in global rate limit cooldown
+          { rateLimitResetAt: null },
+          { rateLimitResetAt: { $lte: now.toISOString() } }
+        ]
+      } as any); // <-- Type assertion added here
 
       if (availableKeys.length === 0) {
         const error = new Error('No available API keys (all active keys might be rate-limited or disabled)');
