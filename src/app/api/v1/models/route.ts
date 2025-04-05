@@ -3,14 +3,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import keyManager from '@/lib/services/keyManager';
 import { logError } from '@/lib/services/logger';
+import { readSettings } from '@/lib/settings'; // Import readSettings
 
 export async function GET(req: NextRequest) {
   const maxRetries = 3;
   let retryCount = 0;
 
-  // Define the upstream URL - **This might need adjustment based on the specific OpenAI-compatible endpoint being used**
-  // Let's start with the original one that was present before.
-  const upstreamUrl = 'https://generativelanguage.googleapis.com/v1beta/openai/models';
+  // Get settings to retrieve the configured endpoint
+  const settings = await readSettings();
+  // Use configured endpoint or fall back to default
+  const baseEndpoint = settings.endpoint || 'https://generativelanguage.googleapis.com/v1beta/openai';
+  const upstreamUrl = `${baseEndpoint}/models`;
+  
+  console.log('Using endpoint for models:', upstreamUrl); // Add logging
 
   while (retryCount < maxRetries) {
     let keyData: { key: string; id: string } | null = null; // Store the object returned by getKey
@@ -18,11 +23,9 @@ export async function GET(req: NextRequest) {
       keyData = await keyManager.getKey(); // Get key data object
 
       // Ensure a key was actually retrieved
-      // Ensure a key was actually retrieved (getKey should throw if none found, but double-check)
       if (!keyData || !keyData.key) {
           logError(new Error('No available API key found'), { context: 'Models endpoint - getKey' });
           // If no key is found after retries, return an error.
-          // If this happens on the first try, the loop might handle it, but explicit check is safer.
           return NextResponse.json(
             { error: { message: 'No available API keys to process the request.', type: 'no_key_available' } },
             { status: 503 } // Service Unavailable might be appropriate
@@ -41,7 +44,6 @@ export async function GET(req: NextRequest) {
       const response = await axios.get(upstreamUrl, axiosConfig);
 
       // Mark the key as successful only if the request succeeded
-      // Mark success (no argument needed)
       await keyManager.markKeySuccess();
 
       // Return the data from the upstream API

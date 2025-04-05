@@ -12,18 +12,20 @@ const DB_FILE = path.join(DATA_DIR, 'database.db');
 export interface Settings {
   keyRotationRequestCount: number;
   maxFailureCount: number;
-  rateLimitCooldown: number; // Cooldown in seconds
+  rateLimitCooldown: number; // seconds
   logRetentionDays: number;
-  maxRetries: number; // Max retries for downstream API calls
+  maxRetries: number;
+  endpoint: string; // Add the endpoint field
 }
 
-// Define and export default settings
-const DEFAULT_SETTINGS: Settings = {
-  keyRotationRequestCount: 5,
-  maxFailureCount: 5,
-  rateLimitCooldown: 60, // Default 1 minute cooldown
-  logRetentionDays: 14, // Default 14 days retention
-  maxRetries: 3, // Default 3 retries
+// Define DEFAULT_SETTINGS with the endpoint field
+export const DEFAULT_SETTINGS: Settings = {
+  keyRotationRequestCount: 10,
+  maxFailureCount: 3,
+  rateLimitCooldown: 60, // 60 seconds
+  logRetentionDays: 30,
+  maxRetries: 3,
+  endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai', // Default endpoint
 };
 
 
@@ -129,5 +131,5 @@ export async function getDb(): Promise<Database> {
   return dbInstance;
 }
 
-// Export default settings if needed elsewhere
-export { DEFAULT_SETTINGS };
+// Remove this duplicate export at the end of the file
+// export { DEFAULT_SETTINGS };

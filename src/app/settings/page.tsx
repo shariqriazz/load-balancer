@@ -39,11 +39,17 @@ import AppLayout from '@/components/layout/AppLayout'; // Import AppLayout
 import { useContext } from 'react';
 import { ThemeContext } from '@/contexts/ThemeContext';
 
+import { SettingsForm } from '@/components/settings/SettingsForm';
+// Remove the AdminLayout import since it's not being used
+// import { AdminLayout } from '@/components/layout/AdminLayout';
+import { EndpointSetting } from '@/components/settings/EndpointSetting';
+
 interface Settings {
   keyRotationRequestCount: number;
   maxFailureCount: number;
   rateLimitCooldown: number;
   logRetentionDays: number;
+  endpoint: string; // Add endpoint field
 }
 
 export default function SettingsPage() {
@@ -52,6 +58,7 @@ export default function SettingsPage() {
     maxFailureCount: 5,
     rateLimitCooldown: 60,
     logRetentionDays: 14,
+    endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai', // Add default endpoint
   });
   
   const [isLoading, setIsLoading] = useState(true);
@@ -313,6 +320,20 @@ export default function SettingsPage() {
           </Alert>
         )}
 
+        {/* Add the API Endpoint Configuration card here, before the SimpleGrid */}
+        <Card bg={cardBg} borderWidth="1px" borderColor={borderColor} borderRadius="lg" shadow="sm" mb={6}>
+          <CardHeader>
+            <Heading size="md">API Endpoint Configuration</Heading>
+          </CardHeader>
+          <Divider borderColor={borderColor} />
+          <CardBody>
+            <EndpointSetting 
+              value={settings.endpoint || 'https://generativelanguage.googleapis.com/v1beta/openai'}
+              onChange={(value) => setSettings({ ...settings, endpoint: value })}
+            />
+          </CardBody>
+        </Card>
+
         <SimpleGrid columns={{ base: 1, lg: 2 }} gap={6} mb={6}> {/* Adjusted grid columns and added margin */}
           <Card bg={cardBg} borderWidth="1px" borderColor={borderColor} borderRadius="lg" shadow="sm">
             <CardHeader>
@@ -540,3 +561,5 @@ export default function SettingsPage() {
     </AppLayout>
   );
 }
+
+// Remove this duplicate card that was causing the errors

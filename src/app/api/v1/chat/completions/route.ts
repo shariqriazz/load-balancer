@@ -48,9 +48,13 @@ export async function POST(req: NextRequest) {
   // relying on keyManager for outgoing requests).
   // --- End Master API Key Check ---
 
-  // Fetch settings to get maxRetries
+  // Fetch settings to get maxRetries and endpoint
   const settings = await readSettings();
-  const maxRetries = settings.maxRetries; // Use configured maxRetries
+  const maxRetries = settings.maxRetries || 3; // Use configured maxRetries or default to 3
+  // Use configured endpoint or fall back to default
+  const baseEndpoint = settings.endpoint || 'https://generativelanguage.googleapis.com/v1beta/openai';
+  
+  console.log('Using endpoint for chat completions:', baseEndpoint); // Add logging
 
   let retryCount = 0;
   const requestId = uuidv4();
@@ -114,7 +118,7 @@ export async function POST(req: NextRequest) {
       }
 
       const response = await axios.post(
-        'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+        `${baseEndpoint}/chat/completions`,
         body,
         axiosConfig
       );

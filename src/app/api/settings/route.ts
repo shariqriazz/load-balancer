@@ -17,25 +17,35 @@ export async function GET() {
 }
 
 // POST /api/settings - Update application settings
+// Helper function to validate string with default
+// Make sure the validateString function exists
+function validateString(value: any, defaultValue: string): string {
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+  return defaultValue;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const currentSettings = await readSettings();
     
+    console.log('Received settings update:', body); // Add logging to debug
+    
     // Validate and update settings
-    // Validate and update settings, including the new maxRetries
     const newSettings: Settings = {
       keyRotationRequestCount: validateNumber(body.keyRotationRequestCount, currentSettings.keyRotationRequestCount, 1, 100),
       maxFailureCount: validateNumber(body.maxFailureCount, currentSettings.maxFailureCount, 1, 20),
-      rateLimitCooldown: validateNumber(body.rateLimitCooldown, currentSettings.rateLimitCooldown, 10, 3600), // seconds
-      logRetentionDays: validateNumber(body.logRetentionDays, currentSettings.logRetentionDays, 1, 90), // days
-      maxRetries: validateNumber(body.maxRetries, currentSettings.maxRetries, 0, 10), // 0-10 retries
+      rateLimitCooldown: validateNumber(body.rateLimitCooldown, currentSettings.rateLimitCooldown, 10, 3600),
+      logRetentionDays: validateNumber(body.logRetentionDays, currentSettings.logRetentionDays, 1, 90),
+      maxRetries: validateNumber(body.maxRetries, currentSettings.maxRetries, 0, 10),
+      endpoint: validateString(body.endpoint, currentSettings.endpoint), // Make sure endpoint is included
     };
     
-    await writeSettings(newSettings);
+    console.log('Saving settings:', newSettings); // Add logging to debug
     
-    // Remove incorrect environment variable update
-    // process.env.KEY_ROTATION_REQUEST_COUNT = newSettings.keyRotationRequestCount.toString();
+    await writeSettings(newSettings);
 
     return NextResponse.json({
       message: 'Settings updated successfully',
