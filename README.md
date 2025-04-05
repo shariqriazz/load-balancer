@@ -19,6 +19,7 @@ Thanks to @SannidhyaSah for his contribution to this application
 - **Real-time Monitoring**: Live updates of key status and usage metrics
 - **Customizable Settings**: Configure key rotation, rate limits, and more
 - **Import/Export Keys**: Backup and restore your API keys via JSON files.
+- **Configurable API Endpoint**: Set the target OpenAI-compatible API endpoint directly through the UI.
 
 ## Architecture
 
@@ -27,7 +28,7 @@ The Load Balancer is built using Next.js App Router, which allows for a unified 
 - **Frontend**: React with Chakra UI and Tailwind CSS for a responsive and accessible interface
 - **Backend**: Next.js API routes that proxy requests to the OpenAI Compatible API
 - **State Management**: React Context API and SWR for efficient data fetching
-- **Data Storage**: SQLite database (`data/database.db`) for API keys, settings, and detailed request logs (`request_logs` table). File-based storage for supplementary debugging logs (incoming requests, errors, key events). Statistics are primarily derived from the database.
+- **Data Storage**: SQLite database (`data/database.db`) for API keys, application settings (including the target API endpoint), and detailed request logs (`request_logs` table). File-based storage for supplementary debugging logs (incoming requests, errors, key events). Statistics are primarily derived from the database.
 - **Styling**: Chakra UI with Tailwind CSS for a consistent design system
 - **Error Handling**: Comprehensive error logging and monitoring
 - **Type Safety**: Full TypeScript implementation
@@ -84,6 +85,20 @@ MASTER_API_KEY=
 ```
 
 Note: OpenAI Comptaible API keys and rotation settings are managed through the UI (stored in the `data/database.db` SQLite database), not directly in the `.env` file.
+
+**Important:** While server-level settings like `PORT` and `ADMIN_PASSWORD` are configured in the `.env` file, application behavior settings, including the target OpenAI-compatible API endpoint, are managed through the UI on the **Settings** page.
+
+### Configuring the API Endpoint
+
+This application allows you to specify the base URL for the downstream OpenAI-compatible API service you want to proxy requests to.
+
+1.  Navigate to the **Settings** page in the application UI.
+2.  Locate the **API Endpoint Configuration** section.
+3.  Enter the base URL of your desired API (e.g., `https://api.mistral.ai/v1`, `https://api.groq.com/openai/v1`).
+4.  Click the **Save** button next to the API Endpoint input field.
+5.  **Important:** You must also click the main **Save Settings** button at the bottom of the page to persist the changes.
+
+The default endpoint is `https://generativelanguage.googleapis.com/v1beta/openai`. You can revert to this default at any time using the **Reset to Default** button (remember to click **Save Settings** afterwards).
 
 ## Recommended Settings
 
