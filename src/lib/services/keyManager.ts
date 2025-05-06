@@ -1,6 +1,7 @@
 import { ApiKey } from '../models/ApiKey';
 import { logKeyEvent, logError } from './logger';
 import { readSettings } from '@/lib/settings';
+import { Settings } from '@/lib/db'; // Import Settings type
 import { Mutex } from 'async-mutex'; // Import Mutex
 
 // Helper function to check if two date objects represent the same day in the server's local timezone
@@ -69,7 +70,7 @@ class KeyManager {
             updatedKeysMap.set(key._id, key); // Store the updated key instance
         }
       }
-      
+
       // If any keys were reset, perform a single bulk write
       if (keysWereReset) {
           await ApiKey.bulkUpdate(updatedKeysMap);
@@ -90,6 +91,28 @@ class KeyManager {
         const error = new Error('No available API keys (all active keys might be rate-limited or disabled)');
         logError(error, { context: 'Key rotation - post daily reset' });
         throw error;
+      }
+
+      // --- Profile-based Key Selection Logic ---
+      // Get the current key's profile (if any)
+      const currentProfile = this.currentKey?.profile || '';
+
+      // Filter keys to get those from different profiles
+      let differentProfileKeys = availableKeys.filter(k => k.profile !== currentProfile && k.profile !== '');
+
+      // If we have keys from different profiles, use only those
+      if (differentProfileKeys.length > 0) {
+        logKeyEvent('Profile-Based Rotation', {
+          currentProfile: currentProfile || 'none',
+          availableProfiles: [...new Set(differentProfileKeys.map(k => k.profile || 'none'))].join(', ')
+        });
+        availableKeys = differentProfileKeys;
+      } else {
+        logKeyEvent('No Different Profile Keys', {
+          currentProfile: currentProfile || 'none',
+          fallbackToSameProfile: true
+        });
+        // If no keys from different profiles, we'll use all available keys
       }
 
       // --- Hybrid LRU + New Key Priority Logic ---
@@ -117,12 +140,13 @@ class KeyManager {
 
       this.currentKey = key;
       this.requestCounter = 0; // Reset counter on key rotation
-      
+
       // Log key rotation
       logKeyEvent('Key Rotation', {
         keyId: key._id,
         lastUsed: key.lastUsed,
         failureCount: key.failureCount,
+        profile: key.profile || 'none',
         rotationType: 'scheduled'
       });
 
@@ -141,7 +165,7 @@ class KeyManager {
         this.currentKey.requestCount += 1; // Increment total request count
         this.currentKey.dailyRequestsUsed += 1; // Increment daily request count
         await this.currentKey.save();
-        
+
         logKeyEvent('Key Success', {
           keyId: this.currentKey._id,
           lastUsed: this.currentKey.lastUsed,
@@ -166,20 +190,39 @@ class KeyManager {
       // Check if it's a rate limit error
       if (error.response?.status === 429) {
         const resetTime = error.response.headers['x-ratelimit-reset'];
-        // Fetch settings to get the configured cooldown
+        // Fetch settings to get the configured cooldown and failover delay
         const settings = await readSettings();
         const fallbackCooldownMs = settings.rateLimitCooldown * 1000; // Convert seconds to ms
+        const failoverDelayMs = settings.failoverDelay * 1000; // Convert seconds to ms
 
         this.currentKey.rateLimitResetAt = resetTime
           ? new Date(resetTime * 1000).toISOString() // Use API provided reset time if available
           : new Date(Date.now() + fallbackCooldownMs).toISOString(); // Use configured fallback
-        
+
+        // Store the current profile before switching
+        const currentProfile = this.currentKey.profile || '';
+
         logKeyEvent('Rate Limit Hit', {
           keyId: this.currentKey._id,
-          resetTime: this.currentKey.rateLimitResetAt
+          resetTime: this.currentKey.rateLimitResetAt,
+          failoverDelay: settings.failoverDelay,
+          profile: currentProfile || 'none'
         });
 
         await keyToUpdate.save();
+
+        // Apply failover delay if configured (greater than 0)
+        if (failoverDelayMs > 0) {
+          logKeyEvent('Failover Delay', {
+            keyId: this.currentKey._id,
+            delayMs: failoverDelayMs,
+            profile: currentProfile || 'none'
+          });
+
+          // Wait for the configured delay before switching keys
+          await new Promise(resolve => setTimeout(resolve, failoverDelayMs));
+        }
+
         // Clear current key ONLY if it's still the one we were working on
         if (this.currentKey?._id === keyToUpdate._id) {
             this.currentKey = null;
@@ -188,7 +231,7 @@ class KeyManager {
       }
 
       keyToUpdate.failureCount += 1;
-      
+
       // Fetch current settings to get the threshold
       const settings = await readSettings();
       const maxFailures = settings.maxFailureCount;
@@ -196,7 +239,7 @@ class KeyManager {
       // If too many failures, deactivate the key
       if (keyToUpdate.failureCount >= maxFailures) {
         keyToUpdate.isActive = false;
-        
+
         logKeyEvent('Key Deactivated', {
           keyId: keyToUpdate._id, // Corrected variable name
           reason: `Failure count reached threshold (${maxFailures})`,
@@ -213,7 +256,7 @@ class KeyManager {
         // If not deactivated, save the incremented failure count
         await keyToUpdate.save();
       }
-      
+
       return false; // Indicate it was not a rate limit error
       } catch (error: any) {
         logError(error, {
@@ -303,14 +346,14 @@ class KeyManager {
     }); // End mutex runExclusive
   }
 
-  async addKey(data: { key: string, name?: string, dailyRateLimit?: number | null }): Promise<ApiKey> {
+  async addKey(data: { key: string, name?: string, profile?: string, dailyRateLimit?: number | null }): Promise<ApiKey> {
     // Although less critical, lock addKey to prevent potential race conditions
     // if a rotation happens while adding/reactivating a key.
     return await this.mutex.runExclusive(async () => {
-      const { key, name, dailyRateLimit } = data; // Destructure input, including dailyRateLimit
+      const { key, name, profile, dailyRateLimit } = data; // Destructure input, including profile and dailyRateLimit
       try {
       const existingKey = await ApiKey.findOne({ key });
-      
+
       if (existingKey) {
         existingKey.isActive = true;
         existingKey.failureCount = 0; // Reset failure count
@@ -318,20 +361,28 @@ class KeyManager {
         existingKey.dailyRequestsUsed = 0; // Reset daily usage
         existingKey.lastResetDate = null; // Clear last reset date
         existingKey.isDisabledByRateLimit = false; // Ensure not disabled by daily limit
+
+        // Update profile if provided
+        if (profile !== undefined) {
+          existingKey.profile = profile;
+        }
+
         await existingKey.save();
 
         logKeyEvent('Key Reactivated', {
-          keyId: existingKey._id
+          keyId: existingKey._id,
+          profile: existingKey.profile || 'none'
         });
 
         return existingKey;
       }
 
-      // Pass dailyRateLimit when creating the key
-      const newKey = await ApiKey.create({ key, name, dailyRateLimit });
-      
+      // Pass all parameters when creating the key
+      const newKey = await ApiKey.create({ key, name, profile, dailyRateLimit });
+
       logKeyEvent('New Key Added', {
-        keyId: newKey._id
+        keyId: newKey._id,
+        profile: newKey.profile || 'none'
       });
 
       return newKey;
