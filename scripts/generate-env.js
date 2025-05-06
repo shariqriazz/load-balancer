@@ -15,7 +15,10 @@ async function generateEnvFile() {
     try {
         // Read the .env.example file
         const examplePath = path.join(process.cwd(), '.env.example');
-        const envExample = await fs.promises.readFile(examplePath, 'utf8');
+        let envExample = await fs.promises.readFile(examplePath, 'utf8');
+
+        // Remove any existing MASTER_API_KEY lines (including placeholders)
+        envExample = envExample.replace(/^MASTER_API_KEY=.*$/gm, '');
 
         // Generate secure random values
         const adminPassword = generateSecureString(32);
