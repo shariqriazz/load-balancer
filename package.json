@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "bun run next dev",
-    "start": "bun run next start",
+    "dev": "PORT=4270 bun run next dev",
+    "start": "PORT=4270 bun run next start",
     "build": "bun run next build",
     "lint": "bun run next lint",
     "migrate:db": "bunx tsx scripts/migrate-json-to-db.js",

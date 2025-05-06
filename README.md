@@ -80,7 +80,7 @@ REQUIRE_ADMIN_LOGIN=true
 MASTER_API_KEY=
 ```
 
-Note: The application runs on port 4269 by default. If you need to change the port, you can modify it in the package.json scripts.
+Note: The application runs on port 4270 by default. If you need to change the port, you can modify it in the package.json scripts.
 
 Note: OpenAI Comptaible API keys and rotation settings are managed through the UI (stored in the `data/database.db` SQLite database), not directly in the `.env` file.
 
@@ -161,7 +161,7 @@ bun start
 # bun run start
 ```
 
-The application will be available at http://localhost:4269 (or your configured PORT)
+The application will be available at http://localhost:4270 (or your configured PORT)
 
 Using PM2 for process management:
 
@@ -202,10 +202,10 @@ pm2 start bun --name load-balancer -- start
 
 To use this load balancer as an API service for your applications:
 
-1. Start the application and access the UI at http://localhost:4269
+1. Start the application and access the UI at http://localhost:4270
 2. Go to the "API Keys" section and add your OpenAI Compatible API keys through the UI
 3. In your client application, configure the following:
-   - Base URL: `http://localhost:4269/api/v1` (or your deployed URL)
+   - Base URL: `http://localhost:4270/api/v1` (or your deployed URL)
    - Authorization Header:
      - If `MASTER_API_KEY` is set in the server's `.env` file, incoming requests to `/api/v1/chat/completions` **must** include the header `Authorization: Bearer <MASTER_API_KEY>`.
      - If `MASTER_API_KEY` is **not** set (left blank) in the `.env` file, this specific authorization check is skipped. The load balancer will still use its managed OpenAI Comptaible keys for outgoing requests.
@@ -215,7 +215,7 @@ Example configuration in your client:
 
 ```javascript
 const configuration = {
-  baseURL: "http://localhost:4269/api/v1",
+  baseURL: "http://localhost:4270/api/v1",
   // apiKey: "any-string-works", // If MASTER_API_KEY is not set on server
   // OR
   // headers: { Authorization: "Bearer your_secret_master_key_here" } // If MASTER_API_KEY is set on server
