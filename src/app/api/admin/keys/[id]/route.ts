@@ -9,23 +9,23 @@ export async function DELETE(
 ) {
   try {
     const id = params.id;
-    
+
     if (!id) {
       return NextResponse.json(
         { error: 'API key ID is required' },
         { status: 400 }
       );
     }
-    
+
     const deleted = await ApiKey.deleteById(id);
-    
+
     if (!deleted) {
       return NextResponse.json(
         { error: 'API key not found' },
         { status: 404 }
       );
     }
-    
+
     return NextResponse.json({
       message: 'API key deleted successfully'
     });
@@ -45,28 +45,28 @@ export async function PATCH(
 ) {
   try {
     const id = params.id;
-    
+
     if (!id) {
       return NextResponse.json(
         { error: 'API key ID is required' },
         { status: 400 }
       );
     }
-    
+
     // Find the key
     const key = await ApiKey.findOne({ _id: id });
-    
+
     if (!key) {
       return NextResponse.json(
         { error: 'API key not found' },
         { status: 404 }
       );
     }
-    
+
     // Toggle the active status
     const wasActive = key.isActive; // Store previous state
     key.isActive = !key.isActive;
-    
+
     // If activating the key, reset failure count and rate limit
     if (!wasActive && key.isActive) {
       key.failureCount = 0; // Reset failure count
@@ -76,10 +76,10 @@ export async function PATCH(
     } else if (wasActive && !key.isActive) {
       logKeyEvent('Key Deactivated', { keyId: key._id, reason: 'Manual deactivation' });
     }
-    
+
     // Save the changes
     await key.save();
-    
+
     return NextResponse.json({
       message: `API key ${key.isActive ? 'activated' : 'deactivated'} successfully`,
       isActive: key.isActive
@@ -101,7 +101,7 @@ export async function PUT(
   try {
     const id = params.id;
     const body = await request.json();
-    const { name, dailyRateLimit } = body; // Expecting 'name' and optionally 'dailyRateLimit'
+    const { name, profile, dailyRateLimit } = body; // Expecting 'name', 'profile', and optionally 'dailyRateLimit'
 
     if (!id) {
       return NextResponse.json(
@@ -117,7 +117,15 @@ export async function PUT(
         { status: 400 }
       );
     }
-    
+
+    // Basic validation for profile (optional)
+    if (profile !== undefined && profile !== null && typeof profile !== 'string') {
+       return NextResponse.json(
+        { error: 'Invalid profile format. Must be a string or null.' },
+        { status: 400 }
+      );
+    }
+
     // --- Validate dailyRateLimit ---
     let validatedRateLimit: number | null | undefined = undefined; // Keep track of validated value
     if (dailyRateLimit !== undefined) {
@@ -150,6 +158,10 @@ export async function PUT(
       key.name = name?.trim() || undefined; // Trim whitespace or set to undefined if empty
       updatedFields.push('name');
     }
+    if (profile !== undefined) {
+      key.profile = profile === null ? '' : profile.trim() || ''; // Trim whitespace or set to empty string if empty
+      updatedFields.push('profile');
+    }
     if (validatedRateLimit !== undefined) {
       key.dailyRateLimit = validatedRateLimit;
       updatedFields.push('dailyRateLimit');
@@ -163,7 +175,7 @@ export async function PUT(
 
     // Save the changes
     await key.save();
-    
+
     if (updatedFields.length > 0) {
       logKeyEvent('Key Updated', { keyId: key._id, updatedFields: updatedFields });
     }

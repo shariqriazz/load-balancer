@@ -17,6 +17,7 @@ import {
   FormControl,
   FormLabel,
   Input,
+  Select,
   useToast,
   Flex,
   Spinner,
@@ -33,6 +34,7 @@ interface ApiKey {
   _id: string;
   key: string;
   name?: string;
+  profile?: string | null; // Profile name for key grouping
   isActive: boolean;
   lastUsed: string | null;
   rateLimitResetAt: string | null; // Global rate limit
@@ -51,8 +53,29 @@ export default function KeysPage() {
   const [error, setError] = useState<string | null>(null);
   const [newKey, setNewKey] = useState('');
   const [newKeyName, setNewKeyName] = useState('');
+  const [newKeyProfile, setNewKeyProfile] = useState(''); // State for profile
   const [newKeyDailyRateLimit, setNewKeyDailyRateLimit] = useState(''); // State for daily rate limit
-  const { isOpen, onOpen, onClose } = useDisclosure();
+  const [existingProfiles, setExistingProfiles] = useState<string[]>([]);
+  const [selectedProfile, setSelectedProfile] = useState<string>('');
+  const [isCreatingNewProfile, setIsCreatingNewProfile] = useState(false);
+  const [newProfileName, setNewProfileName] = useState('');
+  const { isOpen, onOpen: originalOnOpen, onClose: originalOnClose } = useDisclosure();
+
+  // Custom onOpen handler to reset form state
+  const onOpen = () => {
+    setNewKey('');
+    setNewKeyName('');
+    setNewKeyDailyRateLimit('');
+    setSelectedProfile('');
+    setIsCreatingNewProfile(false);
+    setNewProfileName('');
+    originalOnOpen();
+  };
+
+  // Custom onClose handler
+  const onClose = () => {
+    originalOnClose();
+  };
   const toast = useToast();
 
   const fetchKeys = async () => {
@@ -73,9 +96,28 @@ export default function KeysPage() {
     }
   };
 
+  // Extract unique profiles from keys
+  const extractProfiles = (keys: ApiKey[]): string[] => {
+    const profileSet = new Set<string>();
+
+    keys.forEach(key => {
+      if (key.profile && key.profile.trim() !== '') {
+        profileSet.add(key.profile.trim());
+      }
+    });
+
+    return Array.from(profileSet).sort();
+  };
+
   useEffect(() => {
     fetchKeys();
   }, []);
+
+  // Update existing profiles whenever keys change
+  useEffect(() => {
+    const profiles = extractProfiles(keys);
+    setExistingProfiles(profiles);
+  }, [keys]);
 
   const handleAddKey = async () => {
     if (!newKey.trim()) {
@@ -89,6 +131,25 @@ export default function KeysPage() {
       return;
     }
 
+    // Determine which profile to use
+    let profileToUse = '';
+
+    if (isCreatingNewProfile) {
+      if (!newProfileName.trim()) {
+        toast({
+          title: 'Error',
+          description: 'Profile name cannot be empty when creating a new profile',
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+        });
+        return;
+      }
+      profileToUse = newProfileName.trim();
+    } else {
+      profileToUse = selectedProfile;
+    }
+
     try {
       const response = await fetch('/api/admin/keys', {
         method: 'POST',
@@ -98,6 +159,7 @@ export default function KeysPage() {
         body: JSON.stringify({
           key: newKey,
           name: newKeyName,
+          profile: profileToUse, // Use the determined profile
           dailyRateLimit: newKeyDailyRateLimit.trim() === '' ? null : newKeyDailyRateLimit // Send null if empty, otherwise the value
         }),
       });
@@ -115,9 +177,13 @@ export default function KeysPage() {
         isClosable: true,
       });
 
+      // Reset all form fields
       setNewKey('');
       setNewKeyName('');
       setNewKeyDailyRateLimit(''); // Reset daily rate limit state
+      setSelectedProfile('');
+      setIsCreatingNewProfile(false);
+      setNewProfileName('');
       onClose();
       fetchKeys();
     } catch (err: any) {
@@ -166,39 +232,85 @@ export default function KeysPage() {
           <ModalHeader>Add New API Key</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
-            <FormControl isRequired mb={4}> {/* Add margin bottom */}
-              <FormLabel>API Key</FormLabel>
-              <Input
-                placeholder="Enter your API key"
-                value={newKey}
-                onChange={(e) => setNewKey(e.target.value)}
-              />
+            {/* Step 1: Profile Selection */}
+            <FormControl isRequired mb={4}>
+              <FormLabel>Profile</FormLabel>
+              <Select
+                placeholder="Select a profile"
+                value={isCreatingNewProfile ? "new" : selectedProfile}
+                onChange={(e) => {
+                  if (e.target.value === "new") {
+                    setIsCreatingNewProfile(true);
+                    setSelectedProfile("");
+                  } else {
+                    setIsCreatingNewProfile(false);
+                    setSelectedProfile(e.target.value);
+                  }
+                }}
+              >
+                {existingProfiles.map(profile => (
+                  <option key={profile} value={profile}>{profile}</option>
+                ))}
+                <option value="new">+ Create New Profile</option>
+              </Select>
             </FormControl>
-            <FormControl> {/* Add name input */}
-              <FormLabel>Key Name (Optional)</FormLabel>
-              <Input
-                placeholder="e.g., My Test Key"
-                value={newKeyName}
-                onChange={(e) => setNewKeyName(e.target.value)}
-              />
-            </FormControl>
-            <FormControl mt={4}> {/* Add Daily Rate Limit input */}
-              <FormLabel>Daily Rate Limit (Optional)</FormLabel>
-              <Input
-                type="number" // Use number type for better input control
-                placeholder="e.g., 100 (leave empty for no limit)"
-                value={newKeyDailyRateLimit}
-                onChange={(e) => setNewKeyDailyRateLimit(e.target.value)}
-                min="0" // Prevent negative numbers
-              />
-            </FormControl>
+
+            {/* Show input for new profile name if creating new profile */}
+            {isCreatingNewProfile && (
+              <FormControl isRequired mb={4}>
+                <FormLabel>New Profile Name</FormLabel>
+                <Input
+                  placeholder="e.g., Google, OpenAI, Anthropic"
+                  value={newProfileName}
+                  onChange={(e) => setNewProfileName(e.target.value)}
+                />
+              </FormControl>
+            )}
+
+            {/* Only show the rest of the form if a profile is selected or creating new profile */}
+            {(selectedProfile || isCreatingNewProfile) && (
+              <>
+                <FormControl isRequired mb={4}>
+                  <FormLabel>API Key</FormLabel>
+                  <Input
+                    placeholder="Enter your API key"
+                    value={newKey}
+                    onChange={(e) => setNewKey(e.target.value)}
+                  />
+                </FormControl>
+
+                <FormControl mb={4}>
+                  <FormLabel>Key Name (Optional)</FormLabel>
+                  <Input
+                    placeholder="e.g., My Test Key"
+                    value={newKeyName}
+                    onChange={(e) => setNewKeyName(e.target.value)}
+                  />
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel>Daily Rate Limit (Optional)</FormLabel>
+                  <Input
+                    type="number"
+                    placeholder="e.g., 100 (leave empty for no limit)"
+                    value={newKeyDailyRateLimit}
+                    onChange={(e) => setNewKeyDailyRateLimit(e.target.value)}
+                    min="0"
+                  />
+                </FormControl>
+              </>
+            )}
           </ModalBody>
 
           <ModalFooter>
             <Button variant="ghost" mr={3} onClick={onClose}>
               Cancel
             </Button>
-            <Button colorScheme="blue" onClick={handleAddKey}>
+            <Button
+              colorScheme="blue"
+              onClick={handleAddKey}
+              isDisabled={!(selectedProfile || (isCreatingNewProfile && newProfileName.trim()))}
+            >
               Add Key
             </Button>
           </ModalFooter>

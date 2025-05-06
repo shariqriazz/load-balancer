@@ -16,6 +16,7 @@ export interface Settings {
   logRetentionDays: number;
   maxRetries: number;
   endpoint: string; // Add the endpoint field
+  failoverDelay: number; // seconds - Delay before switching API on rate limited (0 for immediate)
 }
 
 // Define DEFAULT_SETTINGS with the endpoint field
@@ -26,6 +27,7 @@ export const DEFAULT_SETTINGS: Settings = {
   logRetentionDays: 30,
   maxRetries: 3,
   endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai', // Default endpoint
+  failoverDelay: 2, // 2 seconds default delay before switching API on rate limited
 };
 
 
@@ -61,6 +63,7 @@ async function initializeDatabase(): Promise<Database> {
       _id TEXT PRIMARY KEY,
       key TEXT NOT NULL UNIQUE,
       name TEXT,
+      profile TEXT, -- Profile name for key grouping
       isActive BOOLEAN NOT NULL DEFAULT TRUE,
       lastUsed TEXT, -- ISO 8601 date string
       rateLimitResetAt TEXT, -- ISO 8601 date string

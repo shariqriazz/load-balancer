@@ -30,9 +30,9 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const currentSettings = await readSettings();
-    
+
     console.log('Received settings update:', body); // Add logging to debug
-    
+
     // Validate and update settings
     const newSettings: Settings = {
       keyRotationRequestCount: validateNumber(body.keyRotationRequestCount, currentSettings.keyRotationRequestCount, 1, 100),
@@ -41,10 +41,11 @@ export async function POST(request: NextRequest) {
       logRetentionDays: validateNumber(body.logRetentionDays, currentSettings.logRetentionDays, 1, 90),
       maxRetries: validateNumber(body.maxRetries, currentSettings.maxRetries, 0, 10),
       endpoint: validateString(body.endpoint, currentSettings.endpoint), // Make sure endpoint is included
+      failoverDelay: validateNumber(body.failoverDelay, currentSettings.failoverDelay, 0, 60), // 0-60 seconds range
     };
-    
+
     console.log('Saving settings:', newSettings); // Add logging to debug
-    
+
     await writeSettings(newSettings);
 
     return NextResponse.json({

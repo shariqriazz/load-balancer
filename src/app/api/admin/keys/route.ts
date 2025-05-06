@@ -15,6 +15,7 @@ export async function GET() {
         _id: keyInstance._id,
         key: `${keyInstance.key.substring(0, 10)}...${keyInstance.key.substring(keyInstance.key.length - 4)}`, // Masked key
         name: keyInstance.name,
+        profile: keyInstance.profile,
         isActive: keyInstance.isActive,
         lastUsed: keyInstance.lastUsed,
         rateLimitResetAt: keyInstance.rateLimitResetAt,
@@ -42,7 +43,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { key, name, dailyRateLimit } = body; // Extract dailyRateLimit as well
+    const { key, name, profile, dailyRateLimit } = body; // Extract profile and dailyRateLimit
 
     if (!key) {
       return NextResponse.json(
@@ -72,8 +73,23 @@ export async function POST(request: NextRequest) {
     }
     // If undefined, it remains undefined, letting the backend assign default (which is null)
 
-    // Pass key, name, and validated dailyRateLimit to the keyManager method
-    const newKey = await keyManager.addKey({ key, name, dailyRateLimit: validatedRateLimit });
+    // Validate profile (optional, must be a string)
+    let validatedProfile: string | undefined = undefined;
+    if (profile !== undefined) {
+        if (profile === null || profile === '') {
+            validatedProfile = ''; // Use empty string instead of null
+        } else {
+            validatedProfile = String(profile).trim(); // Convert to string and trim
+        }
+    }
+
+    // Pass key, name, profile, and validated dailyRateLimit to the keyManager method
+    const newKey = await keyManager.addKey({
+        key,
+        name,
+        profile: validatedProfile,
+        dailyRateLimit: validatedRateLimit
+    });
 
     // Mask the key for the response
     const maskedKey = {

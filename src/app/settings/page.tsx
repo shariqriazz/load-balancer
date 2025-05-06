@@ -50,6 +50,7 @@ interface Settings {
   rateLimitCooldown: number;
   logRetentionDays: number;
   endpoint: string; // Add endpoint field
+  failoverDelay: number; // Delay before switching API on rate limited (0 for immediate)
 }
 
 export default function SettingsPage() {
@@ -59,8 +60,9 @@ export default function SettingsPage() {
     rateLimitCooldown: 60,
     logRetentionDays: 14,
     endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai', // Add default endpoint
+    failoverDelay: 2, // Default 2 seconds delay before switching API on rate limited
   });
-  
+
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,23 +72,23 @@ export default function SettingsPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null); // State for import file
   const [isImporting, setIsImporting] = useState(false); // State for import button
   const [importResult, setImportResult] = useState<{ message: string; details?: any } | null>(null); // State for import result message
-  
+
   const toast = useToast();
   const { colorMode, toggleColorMode } = useContext(ThemeContext);
-  
+
   const cardBg = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
 
   const fetchSettings = async () => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const response = await fetch('/api/settings');
       if (!response.ok) {
         throw new Error(`Error fetching settings: ${response.statusText}`);
       }
-      
+
       const data = await response.json();
       setSettings(data);
     } catch (err: any) {
@@ -103,7 +105,7 @@ export default function SettingsPage() {
       setIsLoading(false);
     }
   };
-  
+
   useEffect(() => {
     fetchSettings();
   }, []);
@@ -112,7 +114,7 @@ export default function SettingsPage() {
     setIsSaving(true);
     setError(null);
     setIsSaved(false);
-    
+
     try {
       const response = await fetch('/api/settings', {
         method: 'POST',
@@ -121,16 +123,16 @@ export default function SettingsPage() {
         },
         body: JSON.stringify(settings),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to save settings');
       }
-      
+
       const data = await response.json();
       setSettings(data.settings);
       setIsSaved(true);
-      
+
       toast({
         title: 'Settings saved',
         description: 'Your settings have been updated successfully',
@@ -327,7 +329,7 @@ export default function SettingsPage() {
           </CardHeader>
           <Divider borderColor={borderColor} />
           <CardBody>
-            <EndpointSetting 
+            <EndpointSetting
               value={settings.endpoint || 'https://generativelanguage.googleapis.com/v1beta/openai'}
               onChange={(value) => setSettings({ ...settings, endpoint: value })}
             />
@@ -397,6 +399,25 @@ export default function SettingsPage() {
                   Default cooldown period when rate limit is hit (if not specified by API)
                 </Text>
               </FormControl>
+
+              <FormControl mb={4}>
+                <FormLabel>Failover Delay (seconds)</FormLabel>
+                <NumberInput
+                  value={settings.failoverDelay}
+                  onChange={(_, value) => setSettings({ ...settings, failoverDelay: value })}
+                  min={0}
+                  max={60}
+                >
+                  <NumberInputField />
+                  <NumberInputStepper>
+                    <NumberIncrementStepper />
+                    <NumberDecrementStepper />
+                  </NumberInputStepper>
+                </NumberInput>
+                <Text fontSize="sm" color="gray.500" mt={1}>
+                  Delay before switching API on rate limited (0 for immediate)
+                </Text>
+              </FormControl>
             </CardBody>
           </Card>
 
@@ -427,7 +448,7 @@ export default function SettingsPage() {
 
               <FormControl display="flex" alignItems="center" mb={4}>
                 <FormLabel mb="0">Dark Mode</FormLabel>
-                <Switch 
+                <Switch
                   isChecked={colorMode === 'dark'}
                   onChange={toggleColorMode}
                 />

@@ -6,6 +6,7 @@ export interface ApiKeyData {
   _id: string;
   key: string;
   name?: string | null; // Allow null from DB
+  profile?: string; // Profile name for key grouping
   isActive: boolean;
   lastUsed: string | null;
   rateLimitResetAt: string | null;
@@ -32,6 +33,7 @@ export class ApiKey implements ApiKeyData {
   _id: string;
   key: string;
   name?: string | null;
+  profile?: string;
   isActive: boolean;
   lastUsed: string | null;
   rateLimitResetAt: string | null;
@@ -46,6 +48,7 @@ export class ApiKey implements ApiKeyData {
     this._id = data._id;
     this.key = data.key;
     this.name = data.name;
+    this.profile = data.profile;
     this.isActive = data.isActive; // Booleans are handled directly in the class
     this.lastUsed = data.lastUsed;
     this.rateLimitResetAt = data.rateLimitResetAt;
@@ -143,6 +146,7 @@ export class ApiKey implements ApiKeyData {
       _id: newId,
       key: data.key || '',
       name: data.name,
+      profile: data.profile || '',
       isActive: data.isActive ?? true,
       lastUsed: data.lastUsed || null,
       rateLimitResetAt: data.rateLimitResetAt || null,
@@ -157,11 +161,12 @@ export class ApiKey implements ApiKeyData {
     if (!keyData.key) throw new Error("API key value cannot be empty");
 
     await db.run(
-      `INSERT INTO api_keys (_id, key, name, isActive, lastUsed, rateLimitResetAt, failureCount, requestCount, dailyRateLimit, dailyRequestsUsed, lastResetDate, isDisabledByRateLimit)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO api_keys (_id, key, name, profile, isActive, lastUsed, rateLimitResetAt, failureCount, requestCount, dailyRateLimit, dailyRequestsUsed, lastResetDate, isDisabledByRateLimit)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       keyData._id,
       keyData.key,
       keyData.name,
+      keyData.profile,
       booleanToDb(keyData.isActive),
       keyData.lastUsed,
       keyData.rateLimitResetAt,
@@ -181,10 +186,11 @@ export class ApiKey implements ApiKeyData {
     const db = await getDb();
     await db.run(
       `UPDATE api_keys
-       SET key = ?, name = ?, isActive = ?, lastUsed = ?, rateLimitResetAt = ?, failureCount = ?, requestCount = ?, dailyRateLimit = ?, dailyRequestsUsed = ?, lastResetDate = ?, isDisabledByRateLimit = ?
+       SET key = ?, name = ?, profile = ?, isActive = ?, lastUsed = ?, rateLimitResetAt = ?, failureCount = ?, requestCount = ?, dailyRateLimit = ?, dailyRequestsUsed = ?, lastResetDate = ?, isDisabledByRateLimit = ?
        WHERE _id = ?`,
       this.key,
       this.name,
+      this.profile,
       booleanToDb(this.isActive),
       this.lastUsed,
       this.rateLimitResetAt,
@@ -224,10 +230,11 @@ export class ApiKey implements ApiKeyData {
       for (const keyInstance of updatedKeysMap.values()) {
         await db.run(
           `UPDATE api_keys
-           SET key = ?, name = ?, isActive = ?, lastUsed = ?, rateLimitResetAt = ?, failureCount = ?, requestCount = ?, dailyRateLimit = ?, dailyRequestsUsed = ?, lastResetDate = ?, isDisabledByRateLimit = ?
+           SET key = ?, name = ?, profile = ?, isActive = ?, lastUsed = ?, rateLimitResetAt = ?, failureCount = ?, requestCount = ?, dailyRateLimit = ?, dailyRequestsUsed = ?, lastResetDate = ?, isDisabledByRateLimit = ?
            WHERE _id = ?`,
           keyInstance.key,
           keyInstance.name,
+          keyInstance.profile,
           booleanToDb(keyInstance.isActive),
           keyInstance.lastUsed,
           keyInstance.rateLimitResetAt,
