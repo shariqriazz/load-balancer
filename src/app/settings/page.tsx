@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, ChangeEvent } from 'react';
 import { useTheme } from 'next-themes';
-import { Save, RefreshCw, Download, Upload, AlertCircle, CheckCircle, Loader2, BarChart3, Clock, Key } from 'lucide-react';
+import { Save, RefreshCw, Download, Upload, AlertCircle, CheckCircle, Loader2, BarChart3, Clock, Key, Trash2 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
 import { Button } from '@/components/ui/button';
@@ -109,6 +109,9 @@ export default function SettingsPage() {
 
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
+
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetResult, setResetResult] = useState<string | null>(null);
 
   useEffect(() => {
     const matchingEndpoint = API_ENDPOINTS.find(ep => ep.value === settings.endpoint);
@@ -364,6 +367,49 @@ export default function SettingsPage() {
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
   };
+
+  const handleResetStats = useCallback(async () => {
+    if (!confirm("Are you sure you want to reset all statistics? This will zero out all request counts but retain API keys and logs.")) {
+      return;
+    }
+    
+    setIsResetting(true);
+    setResetResult(null);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/admin/reset-stats', {
+        method: 'POST',
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Stats reset failed');
+      }
+
+      const successMessage = data.message || 'Statistics reset successfully.';
+      setResetResult(successMessage);
+      
+      // Refresh stats to show the updated values
+      await fetchSummaryStats();
+      
+      toast({
+        title: 'Stats Reset Successful',
+        description: successMessage,
+      });
+    } catch (err: any) {
+      const errorMessage = `Error: ${err.message}`;
+      setResetResult(errorMessage);
+      setError(`Reset Error: ${err.message}`);
+      toast({
+        title: 'Stats Reset Failed',
+        description: err.message || 'Could not reset statistics.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsResetting(false);
+    }
+  }, [toast, fetchSummaryStats]);
 
   return (
     <AppLayout>
@@ -689,7 +735,7 @@ export default function SettingsPage() {
                   <CardTitle>Database Operations</CardTitle>
                   <CardDescription>Manage your data</CardDescription>
                 </CardHeader>
-                <CardContent className="grid gap-6 sm:grid-cols-2">
+                <CardContent className="grid gap-6 sm:grid-cols-3">
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-lg">Log Cleanup</CardTitle>
@@ -709,6 +755,29 @@ export default function SettingsPage() {
                       <Button onClick={handleCleanupLogs} disabled={isCleaning} className="w-full">
                         {isCleaning ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                         {isCleaning ? 'Cleaning...' : 'Clean Old Logs'}
+                      </Button>
+                    </CardFooter>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg">Reset Statistics</CardTitle>
+                      <CardDescription>Zero out request counters</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground">
+                        Reset all request counters and statistics while keeping API keys and log entries intact.
+                      </p>
+                      {resetResult && (
+                        <p className={cn("mt-2 text-sm", resetResult.includes("Error") ? "text-destructive" : "text-primary")}>
+                          {resetResult}
+                        </p>
+                      )}
+                    </CardContent>
+                    <CardFooter>
+                      <Button onClick={handleResetStats} disabled={isResetting} className="w-full" variant="destructive">
+                        {isResetting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                        {isResetting ? 'Resetting...' : 'Reset All Stats'}
                       </Button>
                     </CardFooter>
                   </Card>

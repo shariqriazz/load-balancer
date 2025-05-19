@@ -5,6 +5,22 @@ import { RequestLogData } from '@/lib/models/RequestLog';
 import { getDb } from '@/lib/db';
 import { logError } from '@/lib/services/logger';
 
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const timeRange = searchParams.get('timeRange') || '24h';
+    
+    const stats = await generateStats(timeRange);
+    return NextResponse.json(stats);
+  } catch (error: any) {
+    logError(error, { context: 'GET /api/stats' });
+    return NextResponse.json(
+      { error: error.message || 'Failed to fetch statistics' },
+      { status: 500 }
+    );
+  }
+}
+
 function getDateRange(timeRange: string): { startDate: Date, endDate: Date } {
   const endDate = new Date();
   let startDate = new Date();
@@ -96,6 +112,7 @@ async function generateStats(timeRange: string) {
     
     let totalRequests = keys.reduce((sum, key) => sum + (key.requestCount || 0), 0);
     let totalRequestsToday = keys.reduce((sum, key) => sum + (key.dailyRequestsUsed || 0), 0);
+    let activeKeys = keys.filter(key => key.isActive && !key.isDisabledByRateLimit).length;
 
     let totalRequests24h = 0;
     let totalErrors = 0;
@@ -158,6 +175,8 @@ async function generateStats(timeRange: string) {
       totalErrors,
       apiKeyErrors,
       avgResponseTime,
+      successRate: totalRequests > 0 ? ((totalRequests - totalErrors) / totalRequests) * 100 : 0,
+      activeKeys,
       requestData: requestDataDbResult, // Assuming requestDataDbResult is the data for the chart
       timePeriods: timePeriods.map(date => formatDate(date, timeRange)), // Format periods for chart labels
     };
