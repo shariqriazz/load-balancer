@@ -53,7 +53,6 @@ export async function PATCH(
       );
     }
 
-    // Find the key
     const key = await ApiKey.findOne({ _id: id });
 
     if (!key) {
@@ -64,20 +63,19 @@ export async function PATCH(
     }
 
     // Toggle the active status
-    const wasActive = key.isActive; // Store previous state
+    const wasActive = key.isActive;
     key.isActive = !key.isActive;
 
     // If activating the key, reset failure count and rate limit
     if (!wasActive && key.isActive) {
-      key.failureCount = 0; // Reset failure count
-      key.rateLimitResetAt = null; // Clear global rate limit cooldown
-      key.isDisabledByRateLimit = false; // Ensure it's not marked as disabled by daily limit
+      key.failureCount = 0;
+      key.rateLimitResetAt = null;
+      key.isDisabledByRateLimit = false;
       logKeyEvent('Key Reactivated', { keyId: key._id, reason: 'Manual activation' });
     } else if (wasActive && !key.isActive) {
       logKeyEvent('Key Deactivated', { keyId: key._id, reason: 'Manual deactivation' });
     }
 
-    // Save the changes
     await key.save();
 
     return NextResponse.json({
@@ -141,7 +139,6 @@ export async function PUT(
       }
     }
 
-    // Find the key
     const key = await ApiKey.findOne({ _id: id });
 
     if (!key) {
@@ -151,7 +148,6 @@ export async function PUT(
       );
     }
 
-    // Update fields if they were provided and validated
     const updatedFields: string[] = [];
     if (name !== undefined) {
       key.name = name?.trim() || undefined; // Trim whitespace or set to undefined if empty
@@ -170,14 +166,12 @@ export async function PUT(
       }
     }
 
-    // Save the changes
     await key.save();
 
     if (updatedFields.length > 0) {
       logKeyEvent('Key Updated', { keyId: key._id, updatedFields: updatedFields });
     }
 
-    // Mask the key value for the response
     const maskedKey = {
       ...key,
       key: `${key.key.substring(0, 10)}...${key.key.substring(

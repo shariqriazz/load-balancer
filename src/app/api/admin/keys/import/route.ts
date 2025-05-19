@@ -51,7 +51,6 @@ export async function POST(req: NextRequest) {
 
     try {
       for (const keyData of importedKeys) {
-        // Basic validation
         if (!keyData.key || typeof keyData.key !== 'string') {
           errors.push(`Skipped entry due to missing or invalid 'key' field: ${JSON.stringify(keyData)}`);
           skippedCount++;
@@ -77,7 +76,7 @@ export async function POST(req: NextRequest) {
             // Create new key - ensure all required fields have defaults if not provided
             // Use the _id from import if provided, otherwise let create generate one
             const createData: Partial<ApiKeyData> = {
-                ...keyData, // Spread imported data
+                ...keyData,
                 failureCount: keyData.failureCount ?? 0,
                 requestCount: keyData.requestCount ?? 0,
                 dailyRequestsUsed: keyData.dailyRequestsUsed ?? 0,

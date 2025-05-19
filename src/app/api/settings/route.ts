@@ -29,7 +29,6 @@ export async function POST(request: NextRequest) {
 
     console.log('Received settings update:', body);
 
-    // Validate and update settings
     const newSettings: Settings = {
       keyRotationRequestCount: validateNumber(body.keyRotationRequestCount, currentSettings.keyRotationRequestCount, 1, 100),
       maxFailureCount: validateNumber(body.maxFailureCount, currentSettings.maxFailureCount, 1, 20),
@@ -57,7 +56,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Helper function to validate number settings
 function validateNumber(value: any, defaultValue: number, min: number, max: number): number {
   const num = Number(value);
   if (isNaN(num)) return defaultValue;

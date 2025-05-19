@@ -52,9 +52,8 @@ export async function POST() { // Use POST for actions with side effects
       if (file.startsWith('keys-')) {
         continue;
       }
-      // Now only process request and error logs
       if (!file.match(/^(requests|errors)-\d{4}-\d{2}-\d{2}\.log$/)) {
-          continue; // Skip non-request/error log files
+          continue;
       }
 
       const fileDate = parseDateFromFilename(file);

@@ -30,8 +30,7 @@ export async function middleware(request: NextRequest) {
 
   // Check if the path is public
   const isPublicPath = publicPaths.some(path => pathname.startsWith(path));
-
-  // Allow access to public paths without checking session
+ 
   if (isPublicPath) {
     // If logged in and trying to access login page, redirect to dashboard
     if (pathname === '/login') {
@@ -42,23 +41,19 @@ export async function middleware(request: NextRequest) {
     }
     return NextResponse.next();
   }
-
+ 
   // Check if admin login is globally required via environment variable
   // Defaults to true if the variable is not explicitly set to 'false'
   const requireAdminLogin = process.env.REQUIRE_ADMIN_LOGIN !== 'false';
 
   if (requireAdminLogin) {
-    // If login is required, check the session for non-public paths
     const session = await getIronSession<SessionData>(cookies(), sessionOptions);
 
-    // If user is not logged in, redirect to login page
     if (!session.isLoggedIn) {
-      // Store the intended destination to redirect after login
       const loginUrl = new URL('/login', request.url);
       return NextResponse.redirect(loginUrl);
     }
   }
 
-  // If login is not required OR if user is logged in (when required), allow access
   return NextResponse.next();
 }

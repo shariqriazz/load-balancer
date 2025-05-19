@@ -13,7 +13,7 @@ export async function GET() {
       // Ensure all expected fields are present, using defaults from the instance
       const plainKeyObject = {
         _id: keyInstance._id,
-        key: `${keyInstance.key.substring(0, 10)}...${keyInstance.key.substring(keyInstance.key.length - 4)}`, // Masked key
+        key: `${keyInstance.key.substring(0, 10)}...${keyInstance.key.substring(keyInstance.key.length - 4)}`,
         name: keyInstance.name,
         profile: keyInstance.profile,
         isActive: keyInstance.isActive,
@@ -91,7 +91,6 @@ export async function POST(request: NextRequest) {
         dailyRateLimit: validatedRateLimit
     });
 
-    // Mask the key for the response
     const maskedKey = {
       ...newKey,
       key: `${newKey.key.substring(0, 10)}...${newKey.key.substring(

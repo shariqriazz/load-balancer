@@ -16,13 +16,11 @@ export async function GET(req: Request) {
   try {
     const db = await getDb();
 
-    // Fetch data from all relevant tables
     // Use raw SQL for simplicity and to ensure we get plain data
     const apiKeysData = await db.all<ApiKey[]>('SELECT * FROM api_keys');
     const settingsData = await db.get< { id: number; config: string } >('SELECT * FROM settings WHERE id = 1');
     const requestLogsData = await db.all<RequestLogData[]>('SELECT * FROM request_logs ORDER BY timestamp ASC'); // Order for potential consistency
 
-    // Structure the export data
     const exportData = {
       version: 1, // Add a version number for future compatibility
       exportedAt: new Date().toISOString(),
@@ -34,7 +32,6 @@ export async function GET(req: Request) {
       }
     };
 
-    // Create a JSON response with headers for file download
     const jsonString = JSON.stringify(exportData, null, 2); // Pretty print JSON
     const headers = new Headers();
     headers.set('Content-Type', 'application/json');

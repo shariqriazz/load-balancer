@@ -10,7 +10,6 @@ export async function PATCH(req: NextRequest) {
     action = body.action;
     const { keyIds, dailyRequestLimit } = body;
 
-    // Input Validation
     if (!action || (action !== 'setLimit' && action !== 'delete')) {
         return NextResponse.json({ error: 'Invalid or missing action specified. Must be "setLimit" or "delete".' }, { status: 400 });
     }
@@ -21,9 +20,7 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ error: 'All keyIds must be non-empty strings' }, { status: 400 });
     }
 
-    // Validate specific fields based on action
     if (action === 'setLimit') {
-        // Validate dailyRateLimit (allow null for no limit)
         if (dailyRequestLimit !== null && (typeof dailyRequestLimit !== 'number' || !Number.isInteger(dailyRequestLimit) || dailyRequestLimit < 0)) {
             return NextResponse.json({ error: 'dailyRequestLimit must be a non-negative integer or null' }, { status: 400 });
         }
@@ -31,7 +28,6 @@ export async function PATCH(req: NextRequest) {
 
     const db = await getDb();
 
-    // Construct the placeholders for the IN clause
     const placeholders = keyIds.map(() => '?').join(',');
     let result;
     let successMessage = '';
@@ -41,7 +37,6 @@ export async function PATCH(req: NextRequest) {
         const stmt = await db.prepare(
             `UPDATE api_keys SET dailyRateLimit = ? WHERE _id IN (${placeholders})`
         );
-        // Bind parameters: first the limit, then all the IDs
         result = await stmt.run(dailyRequestLimit, ...keyIds);
         await stmt.finalize();
         count = result.changes || 0;
@@ -54,7 +49,6 @@ export async function PATCH(req: NextRequest) {
         const stmt = await db.prepare(
             `DELETE FROM api_keys WHERE _id IN (${placeholders})`
         );
-        // Bind parameters: all the IDs
         result = await stmt.run(...keyIds);
         await stmt.finalize();
         count = result.changes || 0;
@@ -69,7 +63,7 @@ export async function PATCH(req: NextRequest) {
   } catch (error: any) {
     logError(error, { context: `API Bulk Key Action (${action})` });
     let errorMessage = `Failed to perform bulk key action (${action})`;
-    if (error instanceof SyntaxError) { // Handle JSON parsing errors
+    if (error instanceof SyntaxError) {
         errorMessage = 'Invalid request body format.';
     } else if (error.message) {
     }

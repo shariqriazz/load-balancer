@@ -12,10 +12,8 @@ export async function GET(req: Request) {
   }
 
   try {
-    // Fetch all keys from the database
     const keys = await ApiKey.findAll({}); // Assuming findAll returns instances or plain data
 
-    // Convert instances to plain data objects if necessary (adjust based on ApiKey.findAll implementation)
     const keysData = keys.map(keyInstance => ({
         _id: keyInstance._id,
         key: keyInstance.key,
@@ -32,7 +30,6 @@ export async function GET(req: Request) {
     }));
 
 
-    // Create a JSON response with headers for file download
     const jsonString = JSON.stringify(keysData, null, 2); // Pretty print JSON
     const headers = new Headers();
     headers.set('Content-Type', 'application/json');
