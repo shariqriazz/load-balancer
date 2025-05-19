@@ -104,7 +104,6 @@ const LogsPage = () => {
     }
   }, [isClient, logType, fetchLogs]);
 
-  // Formatters
   const formatPercentage = (value: number | undefined | null): string => {
     if (value === undefined || value === null || isNaN(value)) {
         return "N/A";

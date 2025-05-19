@@ -43,7 +43,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { key, name, profile, dailyRateLimit } = body; // Extract profile and dailyRateLimit
+    const { key, name, profile, dailyRateLimit } = body;
 
     if (!key) {
       return NextResponse.json(

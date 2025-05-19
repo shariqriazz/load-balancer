@@ -1,21 +1,18 @@
 import { NextResponse } from 'next/server';
 import { ApiKey } from '@/lib/models/ApiKey';
-import { RequestLogData } from '@/lib/models/RequestLog'; // Import RequestLogData type
-import { Settings } from '@/lib/db'; // Import Settings type
+import { RequestLogData } from '@/lib/models/RequestLog';
+import { Settings } from '@/lib/db';
 import { logError } from '@/lib/services/logger';
 import { getIronSession } from 'iron-session';
 import { sessionOptions, SessionData } from '@/lib/session';
 import { cookies } from 'next/headers';
-import { getDb } from '@/lib/db'; // Import getDb
+import { getDb } from '@/lib/db';
 
 export async function GET(req: Request) {
-  // --- Authentication Check ---
   const session = await getIronSession<SessionData>(cookies(), sessionOptions);
   if (process.env.REQUIRE_ADMIN_LOGIN !== 'false' && !session.isLoggedIn) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
-  // --- End Authentication Check ---
-
   try {
     const db = await getDb();
 

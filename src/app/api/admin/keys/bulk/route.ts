@@ -72,7 +72,6 @@ export async function PATCH(req: NextRequest) {
     if (error instanceof SyntaxError) { // Handle JSON parsing errors
         errorMessage = 'Invalid request body format.';
     } else if (error.message) {
-        // Include more specific DB errors if safe and available
     }
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }

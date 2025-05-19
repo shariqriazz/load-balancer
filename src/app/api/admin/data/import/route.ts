@@ -15,12 +15,10 @@ function booleanToDb(value: boolean): number {
 
 
 export async function POST(req: NextRequest) {
-  // --- Authentication Check ---
   const session = await getIronSession<SessionData>(cookies(), sessionOptions);
   if (process.env.REQUIRE_ADMIN_LOGIN !== 'false' && !session.isLoggedIn) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
-  // --- End Authentication Check ---
 
   let results = {
     keys: 0,
@@ -97,12 +95,12 @@ export async function POST(req: NextRequest) {
           // Add basic validation if needed, or rely on DB constraints
           await stmtKeys.run(
             key._id, key.key, key.name,
-            booleanToDb(key.isActive), // Convert boolean
+            booleanToDb(key.isActive),
             key.lastUsed, key.rateLimitResetAt,
             key.failureCount ?? 0, key.requestCount ?? 0,
             key.dailyRateLimit, key.dailyRequestsUsed ?? 0,
             key.lastResetDate,
-            booleanToDb(key.isDisabledByRateLimit) // Convert boolean
+            booleanToDb(key.isDisabledByRateLimit)
           );
           results.keys++;
         }
@@ -120,7 +118,7 @@ export async function POST(req: NextRequest) {
            await stmtLogs.run(
              log._id, log.apiKeyId, log.timestamp,
              log.modelUsed, log.responseTime, log.statusCode,
-             booleanToDb(log.isError), // Convert boolean
+             booleanToDb(log.isError),
              log.errorType, log.errorMessage, log.ipAddress
            );
            results.logs++;

@@ -67,7 +67,7 @@ export async function POST() { // Use POST for actions with side effects
           logKeyEvent('Admin Action', { action: 'Deleted old log file', file: file });
         } catch (error: any) {
           const errorMessage = `Failed to delete log file ${file}: ${error.message}`;
-          logError(error, { context: 'Log Cleanup', file: file }); // Keep using logError for errors
+          logError(error, { context: 'Log Cleanup', file: file });
           errors.push(errorMessage);
         }
       }
