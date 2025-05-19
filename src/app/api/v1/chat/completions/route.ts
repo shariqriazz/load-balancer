@@ -94,6 +94,9 @@ export async function POST(req: NextRequest) {
   });
 
   let apiKeyIdForAttempt: string | null = null; // Store the ID used for the current attempt
+  
+  // Create a copy of the original body to use for the request - moved outside of try block
+  let requestBody = JSON.parse(JSON.stringify(body));
 
   while (retryCount < maxRetries) {
     try {
@@ -108,28 +111,23 @@ export async function POST(req: NextRequest) {
         }
       };
       
-      // Modify the request body to include Google Search grounding if enabled
-      if (isGoogleAPI && enableGoogleGrounding && body) {
-        // Create a deep copy of the body to avoid mutating the original
-        const modifiedBody = JSON.parse(JSON.stringify(body));
-        
+      // Modify the request body to include Google Search grounding if enabled AND only for Google API
+      if (isGoogleAPI && enableGoogleGrounding) {
         // Add tools array with Google Search grounding if not already present
-        if (!modifiedBody.tools) {
-          modifiedBody.tools = [
+        if (!requestBody.tools) {
+          // Add the proper tools configuration for Google
+          requestBody.tools = [
             {
-              "googleSearchRetrieval": {
-                "dynamicRetrievalConfig": {
-                  "mode": "MODE_DYNAMIC",
-                  "dynamicThreshold": 0.7 // Default threshold value
-                }
-              }
+              "type": "googleSearchRetrieval"
             }
           ];
           
-          // Replace the original body with the modified one
-          body = modifiedBody;
+          // Also add tool_choice parameter if not already set
+          if (!requestBody.tool_choice) {
+            requestBody.tool_choice = "auto";
+          }
           
-          console.log('Added Google Search grounding to request');
+          console.log('Added Google Search grounding to request:', JSON.stringify(requestBody.tools));
         }
       }
 
@@ -140,7 +138,7 @@ export async function POST(req: NextRequest) {
 
       const response = await axios.post(
         `${baseEndpoint}/chat/completions`,
-        body,
+        requestBody, // Use the possibly modified request body
         axiosConfig
       );
 
@@ -154,7 +152,7 @@ export async function POST(req: NextRequest) {
       if (isGoogleAPI && enableGoogleGrounding) {
         requestLogger.info('Used Google Search grounding', {
           requestId,
-          model: body?.model,
+          model: requestBody?.model,
           responseTime
         });
       }
@@ -164,7 +162,7 @@ export async function POST(req: NextRequest) {
         apiKeyId: apiKeyIdForAttempt, // Use the ID from this attempt
         statusCode: 200,
         isError: false,
-        modelUsed: body?.model,
+        modelUsed: requestBody?.model,
         responseTime: responseTime,
         ipAddress: ipAddress || null,
       }).catch(dbError => logError(dbError, { context: 'RequestLog DB Write Error' }));
@@ -209,7 +207,7 @@ export async function POST(req: NextRequest) {
           isError: true,
           errorType: errorType,
           errorMessage: error.response?.data?.error?.message || error.message,
-          modelUsed: body?.model,
+          modelUsed: requestBody?.model,
           responseTime: responseTime,
           ipAddress: ipAddress || null,
         }).catch(dbError => logError(dbError, { context: 'RequestLog DB Write Error' }));
@@ -237,7 +235,7 @@ export async function POST(req: NextRequest) {
     statusCode: 500,
     streaming: isStreaming,
     responseTime: finalResponseTime,
-    model: body?.model,
+    model: requestBody?.model,
     errorType: 'MaxRetriesExceeded'
   });
 
@@ -248,7 +246,7 @@ export async function POST(req: NextRequest) {
     isError: true,
     errorType: 'MaxRetriesExceeded',
     errorMessage: 'Maximum retries exceeded after multiple upstream failures.',
-    modelUsed: body?.model,
+    modelUsed: requestBody?.model,
     responseTime: finalResponseTime,
     ipAddress: ipAddress || null,
   }).catch(dbError => logError(dbError, { context: 'RequestLog DB Write Error' })); // Catch potential DB errors
