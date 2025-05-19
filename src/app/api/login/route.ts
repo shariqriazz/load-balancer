@@ -18,16 +18,14 @@ export async function POST(request: Request) {
   }
 
   if (password === adminPassword) {
-    // Set session data directly
     session.isLoggedIn = true;
-    // Removed extra closing brace
     await session.save();
 
-    console.log('Login successful, session saved.'); // Add server-side log
+    console.log('Login successful, session saved.');
 
     return NextResponse.json({ message: 'Login successful' }, { status: 200 });
   } else {
-    console.log('Login failed: Invalid password.'); // Add server-side log
+    console.log('Login failed: Invalid password.');
     return NextResponse.json(
       { message: 'Invalid password' },
       { status: 401 } // Unauthorized

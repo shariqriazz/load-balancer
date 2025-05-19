@@ -4,15 +4,13 @@ import { logError, logKeyEvent } from '@/lib/services/logger';
 import { getIronSession } from 'iron-session';
 import { sessionOptions, SessionData } from '@/lib/session';
 import { cookies } from 'next/headers';
-import { getDb } from '@/lib/db'; // Import getDb for transaction
+import { getDb } from '@/lib/db';
 
 export async function POST(req: NextRequest) {
-  // --- Authentication Check ---
   const session = await getIronSession<SessionData>(cookies(), sessionOptions);
   if (process.env.REQUIRE_ADMIN_LOGIN !== 'false' && !session.isLoggedIn) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
-  // --- End Authentication Check ---
 
   let addedCount = 0;
   let updatedCount = 0;
@@ -68,11 +66,9 @@ export async function POST(req: NextRequest) {
 
           if (existingKey) {
             // Update existing key - carefully choose which fields to update
-            // Example: Update name, isActive, dailyRateLimit, but keep existing stats
             existingKey.name = keyData.name !== undefined ? keyData.name : existingKey.name;
             existingKey.isActive = keyData.isActive !== undefined ? keyData.isActive : existingKey.isActive;
             existingKey.dailyRateLimit = keyData.dailyRateLimit !== undefined ? keyData.dailyRateLimit : existingKey.dailyRateLimit;
-            // Add other fields as needed, be cautious about overwriting stats like requestCount unless intended
 
             await existingKey.save(); // Assumes save() works within transaction
             updatedCount++;
@@ -82,17 +78,15 @@ export async function POST(req: NextRequest) {
             // Use the _id from import if provided, otherwise let create generate one
             const createData: Partial<ApiKeyData> = {
                 ...keyData, // Spread imported data
-                // Ensure defaults for fields not typically in export/import or that need resetting
                 failureCount: keyData.failureCount ?? 0,
-                requestCount: keyData.requestCount ?? 0, // Or maybe reset to 0 on import? Decide policy.
-                dailyRequestsUsed: keyData.dailyRequestsUsed ?? 0, // Or reset?
-                lastUsed: keyData.lastUsed ?? null, // Or reset?
+                requestCount: keyData.requestCount ?? 0,
+                dailyRequestsUsed: keyData.dailyRequestsUsed ?? 0,
+                lastUsed: keyData.lastUsed ?? null,
                 rateLimitResetAt: keyData.rateLimitResetAt ?? null,
                 lastResetDate: keyData.lastResetDate ?? null,
                 isDisabledByRateLimit: keyData.isDisabledByRateLimit ?? false,
                 isActive: keyData.isActive ?? true,
             };
-             // Remove undefined fields that might cause issues with DB constraints if not nullable
             Object.keys(createData).forEach(k => createData[k as keyof Partial<ApiKeyData>] === undefined && delete createData[k as keyof Partial<ApiKeyData>]);
 
 

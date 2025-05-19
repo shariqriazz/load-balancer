@@ -40,7 +40,6 @@ import { useToast } from "@/hooks/use-toast";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { cn } from "@/lib/utils";
 
-// --- Timezone Formatting Helper ---
 const formatInTimeZone = (dateInput: string | Date | undefined | null, tz: string, fmt: string): string => {
   if (!dateInput) return 'Invalid Date';
   try {
@@ -60,9 +59,6 @@ const formatInTimeZone = (dateInput: string | Date | undefined | null, tz: strin
     return 'Invalid Date';
   }
 };
-// --- End Timezone Formatting Helper ---
-
-// Interface for Pie Chart data entries
 interface PieChartEntry {
   name: string;
   value: number;
@@ -71,7 +67,6 @@ interface PieChartEntry {
   opacity?: number;
 }
 
-// --- Chart Config --- (Using CSS variables defined in globals.css)
 const chartConfig = {
   requests: {
     label: "Requests",
@@ -95,7 +90,6 @@ const chartConfig = {
   },
 };
 
-// Colors for pie charts with enhanced visual appeal
 const PIE_COLORS = [
     "hsl(var(--chart-1))",
     "hsl(var(--chart-2))",
@@ -108,8 +102,6 @@ const PIE_COLORS = [
     "hsl(30, 90%, 60%)",
     "hsl(300, 70%, 60%)",
 ];
-// --- End Chart Config ---
-
 export default function StatsPage() {
   const [timeRange, setTimeRange] = useState("7d");
   const [isLoading, setIsLoading] = useState(true);
@@ -149,7 +141,6 @@ export default function StatsPage() {
     fetchStats();
   }, [timeRange]);
 
-  // Format percentage for display
   const formatPercentage = (value: number | undefined | null): string => {
     if (value === undefined || value === null || isNaN(value)) {
         return "N/A";
@@ -164,7 +155,6 @@ export default function StatsPage() {
     return value.toLocaleString();
   }
 
-  // --- Memoized Formatted Data ---
   const formattedRequestData = useMemo(() => {
     if (!stats?.requestData) return [];
     const formatString = timeRange === '24h' ? 'HH:mm' : 'MM-dd';
@@ -208,8 +198,6 @@ export default function StatsPage() {
         fill: PIE_COLORS[index % PIE_COLORS.length],
      })) || [];
   }, [stats?.modelUsageData]);
-  // --- End Memoized Formatted Data ---
-
   const renderLoading = () => (
       <div className="flex items-center justify-center h-96">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -275,7 +263,6 @@ export default function StatsPage() {
 
       {isLoading ? renderLoading() : !stats ? renderNoData() : (
         <>
-          {/* Stats Summary Cards */}
           <div className="grid gap-4 mb-6 md:grid-cols-2 lg:grid-cols-4">
              <Card className="overflow-hidden transition-all duration-300 border-0 shadow-md hover:shadow-lg hover-animate">
                 <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-1)/0.2)] to-transparent opacity-50 pointer-events-none" />
@@ -323,9 +310,7 @@ export default function StatsPage() {
               </Card>
           </div>
 
-          {/* Tabs for Charts */}
            <Tabs defaultValue="volume" className="mb-6">
-            {/* Make TabsList full width and use grid for even distribution */}
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="volume">Request Volume</TabsTrigger>
               <TabsTrigger value="key-usage">Key Usage</TabsTrigger>
@@ -333,7 +318,6 @@ export default function StatsPage() {
               <TabsTrigger value="hourly">Hourly Breakdown</TabsTrigger>
             </TabsList>
 
-            {/* Request Volume Tab */}
             <TabsContent value="volume" className="pt-4">
                <Card className="overflow-hidden border-0 shadow-lg hover-animate">
                 <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-1)/0.05)] via-transparent to-[hsl(var(--chart-2)/0.05)] pointer-events-none" />
@@ -441,7 +425,6 @@ export default function StatsPage() {
               </Card>
             </TabsContent>
 
-            {/* Key Usage Tab */}
             <TabsContent value="key-usage" className="pt-4">
               <Card className="overflow-hidden border-0 shadow-lg hover-animate">
                 <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-5)/0.05)] via-transparent to-[hsl(var(--chart-3)/0.05)] pointer-events-none" />
@@ -504,7 +487,6 @@ export default function StatsPage() {
               </Card>
             </TabsContent>
 
-            {/* Model Usage Tab */}
             <TabsContent value="model-usage" className="pt-4">
               <Card className="overflow-hidden border-0 shadow-lg hover-animate">
                 <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-4)/0.05)] via-transparent to-[hsl(var(--chart-1)/0.05)] pointer-events-none" />
@@ -556,7 +538,6 @@ export default function StatsPage() {
               </Card>
             </TabsContent>
 
-            {/* Hourly Breakdown Tab */}
             <TabsContent value="hourly" className="pt-4">
               <Card className="overflow-hidden border-0 shadow-lg hover-animate">
                 <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-1)/0.05)] via-transparent to-[hsl(var(--chart-4)/0.05)] pointer-events-none" />

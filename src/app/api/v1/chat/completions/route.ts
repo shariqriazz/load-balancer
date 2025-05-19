@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import keyManager from '@/lib/services/keyManager';
 import { logError, requestLogger } from '@/lib/services/logger';
-import { readSettings } from '@/lib/settings'; // Import readSettings
+import { readSettings } from '@/lib/settings';
 import { v4 as uuidv4 } from 'uuid';
-import { RequestLog } from '@/lib/models/RequestLog'; // Import RequestLog model
-// Helper function to handle streaming response
+import { RequestLog } from '@/lib/models/RequestLog';
 async function handleStreamingResponse(axiosResponse: any, res: any) {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -29,10 +28,9 @@ async function handleStreamingResponse(axiosResponse: any, res: any) {
 export async function POST(req: NextRequest) {
   const masterApiKey = process.env.MASTER_API_KEY;
 
-  // --- Master API Key Check ---
   if (masterApiKey) {
     const authHeader = req.headers.get('Authorization');
-    const incomingKey = authHeader?.split(' ')[1]; // Extract key from "Bearer <key>"
+    const incomingKey = authHeader?.split(' ')[1];
 
     if (!incomingKey || incomingKey !== masterApiKey) {
       requestLogger.warn('Unauthorized access attempt with Master Key', { path: req.nextUrl.pathname });
@@ -41,20 +39,14 @@ export async function POST(req: NextRequest) {
         { status: 401 }
       );
     }
-    // If Master Key is set and valid, proceed
   }
-  // If Master Key is NOT set, we proceed without this specific check
-  // (maintaining previous behavior where any request could pass this stage,
-  // relying on keyManager for outgoing requests).
-  // --- End Master API Key Check ---
 
   // Fetch settings to get maxRetries and endpoint
   const settings = await readSettings();
-  const maxRetries = settings.maxRetries || 3; // Use configured maxRetries or default to 3
-  // Use configured endpoint or fall back to default
+  const maxRetries = settings.maxRetries || 3;
   const baseEndpoint = settings.endpoint || 'https://generativelanguage.googleapis.com/v1beta/openai';
   
-  console.log('Using endpoint for chat completions:', baseEndpoint); // Add logging
+  console.log('Using endpoint for chat completions:', baseEndpoint);
 
   let retryCount = 0;
   const requestId = uuidv4();
@@ -78,7 +70,7 @@ export async function POST(req: NextRequest) {
         errorMessage: 'Failed to parse request body: ' + parseError.message,
         responseTime: Date.now() - startTime,
         ipAddress: ipAddress || null,
-    }).catch(dbError => logError(dbError, { context: 'RequestLog DB Write Error' })); // Catch potential DB errors
+    }).catch(dbError => logError(dbError, { context: 'RequestLog DB Write Error' }));
 
     return NextResponse.json(
       { error: { message: 'Invalid request body', type: 'invalid_request_error' } },
@@ -136,9 +128,7 @@ export async function POST(req: NextRequest) {
         modelUsed: body?.model,
         responseTime: responseTime,
         ipAddress: ipAddress || null,
-      }).catch(dbError => logError(dbError, { context: 'RequestLog DB Write Error' })); // Catch potential DB errors
-
-      // File logging for successful response removed (now logged to DB)
+      }).catch(dbError => logError(dbError, { context: 'RequestLog DB Write Error' }));
 
       // Handle streaming response differently
       if (isStreaming) {
@@ -172,10 +162,6 @@ export async function POST(req: NextRequest) {
       } else if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
         errorType = 'UpstreamTimeoutError';
       }
-
-      // File logging for standard errors removed (now logged to DB)
-      // We still log the final "Max Retries Exceeded" error to file below.
-
       // Log error to DB (only if not retrying or if it's the last retry attempt)
       if (!((isRateLimit || statusCode >= 500) && retryCount < maxRetries - 1)) {
         await RequestLog.create({
@@ -187,7 +173,7 @@ export async function POST(req: NextRequest) {
           modelUsed: body?.model,
           responseTime: responseTime,
           ipAddress: ipAddress || null,
-        }).catch(dbError => logError(dbError, { context: 'RequestLog DB Write Error' })); // Catch potential DB errors
+        }).catch(dbError => logError(dbError, { context: 'RequestLog DB Write Error' }));
       }
 
       // For non-streaming requests, send error response

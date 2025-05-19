@@ -39,9 +39,9 @@ type LogType = "requests" | "errors" | "keys";
 
 const LogsPage = () => {
   const [logs, setLogs] = useState<any[]>([]);
-  const [logType, setLogType] = useState<LogType>("keys"); // Default to 'keys'
+  const [logType, setLogType] = useState<LogType>("keys");
   const [loading, setLoading] = useState<boolean>(false);
-  const [requestLogsTriggered, setRequestLogsTriggered] = useState<boolean>(false); // State for request logs load
+  const [requestLogsTriggered, setRequestLogsTriggered] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [limit, setLimit] = useState<number>(100);
   const [search, setSearch] = useState<string>("");
@@ -54,7 +54,7 @@ const LogsPage = () => {
   const [appErrorStats, setAppErrorStats] = useState<{ totalErrors: number, apiKeyErrors: number } | null>(null);
   const [appErrorStatsLoading, setAppErrorStatsLoading] = useState<boolean>(true);
   const [appErrorStatsError, setAppErrorStatsError] = useState<string | null>(null);
-  const [isClient, setIsClient] = useState<boolean>(false); // State to track client-side mount
+  const [isClient, setIsClient] = useState<boolean>(false);
 
   const [summaryStats, setSummaryStats] = useState({
     totalRequests: 0,
@@ -74,8 +74,6 @@ const LogsPage = () => {
       if (searchTerm) {
         params.append("search", searchTerm);
       }
-      // Add startDate and endDate params here if date pickers were implemented
-
       const response = await fetch(`/api/logs?${params.toString()}`);
       if (!response.ok) {
         const errorData = await response.json();
@@ -98,9 +96,8 @@ const LogsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [logType, limit, searchTerm, toast]); // Add dependencies
+  }, [logType, limit, searchTerm, toast]);
 
-  // Fetch initial logs for the default tab ('keys')
   useEffect(() => {
     if (isClient && logType === "keys") {
       fetchLogs();
@@ -122,7 +119,6 @@ const LogsPage = () => {
     return value.toLocaleString();
   }
 
-  // Fetch data for the summary cards
   const fetchSummaryStats = useCallback(async () => {
     setSummaryStatsLoading(true);
     setSummaryStatsError(null);
@@ -154,7 +150,6 @@ const LogsPage = () => {
     }
   }, [timeRange, toast]);
 
-  // Fetch app error stats
   const fetchAppErrorStats = useCallback(async () => {
     setAppErrorStatsLoading(true);
     setAppErrorStatsError(null);
@@ -182,21 +177,18 @@ const LogsPage = () => {
     }
   }, [toast]);
 
-  // Fetch summary stats when timeRange changes or on client mount
   useEffect(() => {
     if (isClient) {
       fetchSummaryStats();
     }
   }, [isClient, timeRange, fetchSummaryStats]);
 
-  // Fetch app error stats on client mount
   useEffect(() => {
     if (isClient) {
       fetchAppErrorStats();
     }
   }, [isClient, fetchAppErrorStats]);
 
-  // Basic debounce for search input
   useEffect(() => {
     const handler = setTimeout(() => {
       setSearchTerm(search);
@@ -207,12 +199,10 @@ const LogsPage = () => {
     };
   }, [search]);
 
-  // Set isClient to true after mounting
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  // Fetch logs when searchTerm changes or limit changes
   useEffect(() => {
     if (isClient && (logType !== 'requests' || requestLogsTriggered)) {
       fetchLogs();
@@ -232,7 +222,6 @@ const LogsPage = () => {
     setRequestLogsTriggered(true);
   };
 
-  // Calculate other application errors
   const otherApplicationErrors = useMemo(() => {
     if (!appErrorStats) return 0;
     return Math.max(0, appErrorStats.totalErrors - appErrorStats.apiKeyErrors);
@@ -273,7 +262,6 @@ const LogsPage = () => {
     <AppLayout>
       <TooltipProvider>
         <div className="flex flex-col space-y-6">
-          {/* Header */}
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-semibold tracking-tight">Application Logs</h1>
@@ -306,7 +294,6 @@ const LogsPage = () => {
             </div>
           </div>
 
-          {/* Display summary stats error if exists */}
           {summaryStatsError && (
             <UiAlert variant="destructive">
               <AlertCircle className="w-4 h-4" />
@@ -315,26 +302,20 @@ const LogsPage = () => {
             </UiAlert>
           )}
 
-          {/* Wrap content in client-only rendering check */}
           {!isClient ? (
             <div className="space-y-6">
-              {/* Placeholder for summary cards */}
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Card className="hover-animate"><CardContent className="pt-6 h-[108px] flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></CardContent></Card>
                 <Card className="hover-animate"><CardContent className="pt-6 h-[108px] flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></CardContent></Card>
                 <Card className="hover-animate"><CardContent className="pt-6 h-[108px] flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></CardContent></Card>
                 <Card className="hover-animate"><CardContent className="pt-6 h-[108px] flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></CardContent></Card>
               </div>
-              {/* Placeholder for App Error Card */}
               <Card className="h-[100px] hover-animate"><CardHeader><CardTitle>Other Application Errors</CardTitle></CardHeader><CardContent><Loader2 className="w-6 h-6 animate-spin text-primary" /></CardContent></Card>
-              {/* Placeholder for Filters */}
               <div className="h-10"></div>
-              {/* Placeholder for Tabs */}
               <div className="flex items-center justify-center h-64 border rounded-md"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
             </div>
           ) : (
             <>
-              {/* Stats Summary Cards */}
               {summaryStatsLoading ? (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                   <Card className="hover-animate"><CardContent className="pt-6"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></CardContent></Card>
@@ -394,7 +375,6 @@ const LogsPage = () => {
                 </div>
               )}
 
-              {/* App Error Summary Card */}
               <Card className="border-0 shadow-lg hover-animate">
                 <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-red-500/5 via-transparent to-orange-500/5" />
                 <CardHeader>
@@ -409,7 +389,6 @@ const LogsPage = () => {
                 </CardContent>
               </Card>
 
-              {/* Filters */}
               <div className="flex flex-col pt-4 space-y-2 sm:flex-row sm:space-y-0 sm:space-x-4">
                 <UiInput
                   placeholder="Search logs..."
@@ -435,7 +414,6 @@ const LogsPage = () => {
                 </UiButton>
               </div>
 
-              {/* Tabs */}
               <UiTabs defaultValue="keys" onValueChange={handleTabChange} className="w-full">
                 <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="requests">Requests</TabsTrigger>
@@ -443,7 +421,6 @@ const LogsPage = () => {
                   <TabsTrigger value="keys">Keys</TabsTrigger>
                 </TabsList>
                 <TabsContent value="requests" className="mt-4">
-                  {/* Request Logs Tab Content */}
                   {!requestLogsTriggered ? (
                     <div className="flex flex-col items-center justify-center h-48 space-y-4 border rounded-md">
                       <p className="text-muted-foreground">Request logs can be large.</p>

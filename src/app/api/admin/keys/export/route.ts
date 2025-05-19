@@ -6,20 +6,16 @@ import { sessionOptions, SessionData } from '@/lib/session';
 import { cookies } from 'next/headers';
 
 export async function GET(req: Request) {
-  // --- Authentication Check ---
   const session = await getIronSession<SessionData>(cookies(), sessionOptions);
   if (process.env.REQUIRE_ADMIN_LOGIN !== 'false' && !session.isLoggedIn) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
-  // --- End Authentication Check ---
 
   try {
     // Fetch all keys from the database
-    // We fetch the raw data to avoid potential issues with class methods during serialization
     const keys = await ApiKey.findAll({}); // Assuming findAll returns instances or plain data
 
     // Convert instances to plain data objects if necessary (adjust based on ApiKey.findAll implementation)
-    // If findAll already returns plain data matching ApiKeyData, this map might be simpler or unnecessary.
     const keysData = keys.map(keyInstance => ({
         _id: keyInstance._id,
         key: keyInstance.key,

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ApiKey } from '@/lib/models/ApiKey';
-import { logError, logKeyEvent } from '@/lib/services/logger'; // Import logKeyEvent
+import { logError, logKeyEvent } from '@/lib/services/logger';
 
 // DELETE /api/admin/keys/:id - Delete an API key
 export async function DELETE(
@@ -126,7 +126,7 @@ export async function PUT(
       );
     }
 
-    // --- Validate dailyRateLimit ---
+    // Validate dailyRateLimit
     let validatedRateLimit: number | null | undefined = undefined; // Keep track of validated value
     if (dailyRateLimit !== undefined) {
       if (dailyRateLimit === null) {
@@ -140,7 +140,6 @@ export async function PUT(
         );
       }
     }
-    // --- End Validation ---
 
     // Find the key
     const key = await ApiKey.findOne({ _id: id });
@@ -168,8 +167,7 @@ export async function PUT(
       // If the limit is removed or set to 0, ensure the key isn't disabled by the limit anymore
       if (validatedRateLimit === null || validatedRateLimit === 0) {
           key.isDisabledByRateLimit = false;
-          // Optionally reset daily count here, or let the daily reset handle it
-          // key.dailyRequestsUsed = 0;
+          key.isDisabledByRateLimit = false;
       }
     }
 

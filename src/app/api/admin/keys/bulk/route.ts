@@ -2,18 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { ApiKey } from '@/lib/models/ApiKey';
 import { logError } from '@/lib/services/logger';
-// Removed iron-session imports - assuming middleware handles auth
 
 export async function PATCH(req: NextRequest) {
-  // Removed explicit session check - assuming middleware handles auth
   let action: string = 'unknown'; // Declare action outside try block
   try {
     const body = await req.json();
-    // Assign action from body inside the try block
     action = body.action;
     const { keyIds, dailyRequestLimit } = body;
 
-    // --- Input Validation ---
+    // Input Validation
     if (!action || (action !== 'setLimit' && action !== 'delete')) {
         return NextResponse.json({ error: 'Invalid or missing action specified. Must be "setLimit" or "delete".' }, { status: 400 });
     }
@@ -31,7 +28,6 @@ export async function PATCH(req: NextRequest) {
             return NextResponse.json({ error: 'dailyRequestLimit must be a non-negative integer or null' }, { status: 400 });
         }
     }
-    // --- End Validation ---
 
     const db = await getDb();
 
@@ -66,7 +62,6 @@ export async function PATCH(req: NextRequest) {
         if (count === 0) {
             console.warn(`Bulk delete attempted for key IDs [${keyIds.join(', ')}] but no rows were changed.`);
         }
-        // Optionally log the bulk delete event here if needed
     }
 
     return NextResponse.json({ message: successMessage, count });
@@ -78,7 +73,6 @@ export async function PATCH(req: NextRequest) {
         errorMessage = 'Invalid request body format.';
     } else if (error.message) {
         // Include more specific DB errors if safe and available
-        // errorMessage = `Failed to perform bulk key update: ${error.message}`;
     }
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }

@@ -7,9 +7,7 @@ import { cookies } from 'next/headers';
 // Paths that do not require authentication
 const publicPaths = [
   '/login',
-  '/api/login',
-  // Add any other public API endpoints if needed, e.g., health checks
-  // '/api/health',
+  '/api/login'
 ];
 
 // Matcher config ensures middleware runs on appropriate paths
@@ -21,7 +19,7 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - images/ (public images) - adjust if you have a public image folder
+     * - images/ (public images)
      */
     '/((?!api/v1|_next/static|_next/image|favicon.ico|images).*)',
   ],
@@ -57,7 +55,6 @@ export async function middleware(request: NextRequest) {
     if (!session.isLoggedIn) {
       // Store the intended destination to redirect after login
       const loginUrl = new URL('/login', request.url);
-      // Uncomment the line below if you want to redirect back after login
       // loginUrl.searchParams.set('redirect', pathname);
       return NextResponse.redirect(loginUrl);
     }

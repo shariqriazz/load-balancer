@@ -96,8 +96,3 @@ export async function POST() { // Use POST for actions with side effects
     );
   }
 }
-
-// Optional: Add a GET handler if you want to check status without running cleanup
-// export async function GET() {
-//   return NextResponse.json({ message: "Send POST request to trigger log cleanup." });
-// }

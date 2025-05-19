@@ -42,13 +42,12 @@ interface ApiKey {
   _id: string;
   key: string;
   name?: string;
-  profile?: string | null; // Profile name for key grouping
+  profile?: string | null;
   isActive: boolean;
   lastUsed: string | null;
-  rateLimitResetAt: string | null; // Global rate limit
+  rateLimitResetAt: string | null;
   failureCount: number;
-  requestCount: number; // Total requests
-  // New fields for daily rate limiting
+  requestCount: number;
   dailyRateLimit?: number | null;
   dailyRequestsUsed: number;
   lastResetDate: string | null;
@@ -61,8 +60,8 @@ export default function KeysPage() {
   const [error, setError] = useState<string | null>(null);
   const [newKey, setNewKey] = useState('');
   const [newKeyName, setNewKeyName] = useState('');
-  const [newKeyProfile, setNewKeyProfile] = useState(''); // State for profile
-  const [newKeyDailyRateLimit, setNewKeyDailyRateLimit] = useState(''); // State for daily rate limit
+  const [newKeyProfile, setNewKeyProfile] = useState('');
+  const [newKeyDailyRateLimit, setNewKeyDailyRateLimit] = useState('');
   const [existingProfiles, setExistingProfiles] = useState<string[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<string>('');
   const [isCreatingNewProfile, setIsCreatingNewProfile] = useState(false);
@@ -70,7 +69,6 @@ export default function KeysPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { toast } = useToast();
 
-  // Custom onOpen handler to reset form state
   const onOpen = () => {
     setNewKey('');
     setNewKeyName('');
@@ -81,7 +79,6 @@ export default function KeysPage() {
     setIsModalOpen(true);
   };
 
-  // Custom onClose handler
   const onClose = () => {
     setIsModalOpen(false);
   };
@@ -104,7 +101,6 @@ export default function KeysPage() {
     }
   };
 
-  // Extract unique profiles from keys
   const extractProfiles = (keys: ApiKey[]): string[] => {
     const profileSet = new Set<string>();
 
@@ -121,7 +117,6 @@ export default function KeysPage() {
     fetchKeys();
   }, []);
 
-  // Update existing profiles whenever keys change
   useEffect(() => {
     const profiles = extractProfiles(keys);
     setExistingProfiles(profiles);
@@ -137,7 +132,6 @@ export default function KeysPage() {
       return;
     }
 
-    // Determine which profile to use
     let profileToUse = '';
 
     if (isCreatingNewProfile) {
@@ -164,7 +158,7 @@ export default function KeysPage() {
           key: newKey,
           name: newKeyName,
           profile: profileToUse, // Use the determined profile
-          dailyRateLimit: newKeyDailyRateLimit.trim() === '' ? null : newKeyDailyRateLimit // Send null if empty, otherwise the value
+          dailyRateLimit: newKeyDailyRateLimit.trim() === '' ? null : newKeyDailyRateLimit
         }),
       });
 
@@ -181,7 +175,7 @@ export default function KeysPage() {
       // Reset all form fields
       setNewKey('');
       setNewKeyName('');
-      setNewKeyDailyRateLimit(''); // Reset daily rate limit state
+      setNewKeyDailyRateLimit('');
       setSelectedProfile('');
       setIsCreatingNewProfile(false);
       setNewProfileName('');
@@ -196,7 +190,6 @@ export default function KeysPage() {
     }
   };
 
-  // Handle profile selection change
   const handleProfileChange = (value: string) => {
     if (value === "new") {
       setIsCreatingNewProfile(true);
@@ -211,7 +204,6 @@ export default function KeysPage() {
     <AppLayout>
       <TooltipProvider>
         <div className="p-6 space-y-6">
-          {/* Header */}
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-semibold tracking-tight">API Keys</h1>
@@ -219,7 +211,6 @@ export default function KeysPage() {
             </div>
             
             <div className="flex items-center gap-2">
-              {/* Refresh Button */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button variant="outline" size="icon" onClick={fetchKeys} disabled={isLoading}>
@@ -232,7 +223,6 @@ export default function KeysPage() {
                 </TooltipContent>
               </Tooltip>
 
-              {/* Add New Key Dialog Trigger */}
               <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                 <DialogTrigger asChild>
                   <Button onClick={onOpen}>
@@ -249,7 +239,6 @@ export default function KeysPage() {
                   </DialogHeader>
                   
                   <div className="grid gap-4 py-4">
-                    {/* Step 1: Profile Selection */}
                     <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="profile" className="text-right">
                         Profile <span className="text-destructive">*</span>
@@ -272,7 +261,6 @@ export default function KeysPage() {
                       </div>
                     </div>
 
-                    {/* Show input for new profile name if creating new profile */}
                     {isCreatingNewProfile && (
                       <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="newProfileName" className="text-right">
@@ -288,7 +276,6 @@ export default function KeysPage() {
                       </div>
                     )}
 
-                    {/* Only show the rest of the form if a profile is selected or creating new profile */}
                     {(selectedProfile || isCreatingNewProfile) && (
                       <>
                         <div className="grid grid-cols-4 items-center gap-4">
@@ -351,7 +338,6 @@ export default function KeysPage() {
             </div>
           </div>
 
-          {/* Error Alert */}
           {error && (
             <Alert variant="destructive" className="mb-6">
               <AlertCircle className="h-4 w-4" />

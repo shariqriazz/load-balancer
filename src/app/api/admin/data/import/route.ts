@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ApiKey, ApiKeyData } from '@/lib/models/ApiKey'; // Keep for type checking if needed
-import { RequestLogData } from '@/lib/models/RequestLog'; // Keep for type checking
-import { Settings } from '@/lib/db'; // Import Settings type
+import { ApiKey, ApiKeyData } from '@/lib/models/ApiKey';
+import { RequestLogData } from '@/lib/models/RequestLog';
+import { Settings } from '@/lib/db';
 import { logError, logKeyEvent } from '@/lib/services/logger';
 import { getIronSession } from 'iron-session';
 import { sessionOptions, SessionData } from '@/lib/session';
 import { cookies } from 'next/headers';
-import { getDb } from '@/lib/db'; // Import getDb for transaction
+import { getDb } from '@/lib/db';
 
 // Helper to convert boolean to DB value (0/1) - needed if inserting raw
 function booleanToDb(value: boolean): number {
@@ -59,8 +59,9 @@ export async function POST(req: NextRequest) {
        if (!Array.isArray(importData.data.request_logs)) {
            throw new Error('Invalid JSON structure: "data.request_logs" is not an array.');
        }
-       // Add version check if needed in the future
-       // if (importData.version !== 1) { ... }
+       if (importData.version !== 1) {
+         throw new Error('Unsupported import version');
+       }
 
     } catch (parseError: any) {
       logError(parseError, { context: 'Import All Data - JSON Parsing' });

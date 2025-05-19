@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logError } from '@/lib/services/logger';
 import { Settings, readSettings, writeSettings } from '@/lib/settings';
 
-// GET /api/settings - Get application settings
 export async function GET() {
   try {
     const settings = await readSettings();
@@ -16,9 +15,6 @@ export async function GET() {
   }
 }
 
-// POST /api/settings - Update application settings
-// Helper function to validate string with default
-// Make sure the validateString function exists
 function validateString(value: any, defaultValue: string): string {
   if (typeof value === 'string') {
     return value.trim();
@@ -31,7 +27,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const currentSettings = await readSettings();
 
-    console.log('Received settings update:', body); // Add logging to debug
+    console.log('Received settings update:', body);
 
     // Validate and update settings
     const newSettings: Settings = {
@@ -40,11 +36,11 @@ export async function POST(request: NextRequest) {
       rateLimitCooldown: validateNumber(body.rateLimitCooldown, currentSettings.rateLimitCooldown, 10, 3600),
       logRetentionDays: validateNumber(body.logRetentionDays, currentSettings.logRetentionDays, 1, 90),
       maxRetries: validateNumber(body.maxRetries, currentSettings.maxRetries, 0, 10),
-      endpoint: validateString(body.endpoint, currentSettings.endpoint), // Make sure endpoint is included
-      failoverDelay: validateNumber(body.failoverDelay, currentSettings.failoverDelay, 0, 60), // 0-60 seconds range
+      endpoint: validateString(body.endpoint, currentSettings.endpoint),
+      failoverDelay: validateNumber(body.failoverDelay, currentSettings.failoverDelay, 0, 60),
     };
 
-    console.log('Saving settings:', newSettings); // Add logging to debug
+    console.log('Saving settings:', newSettings);
 
     await writeSettings(newSettings);
 

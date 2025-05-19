@@ -54,7 +54,6 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
 
-  // Simplified stats structure for summary cards
   const [summaryStats, setSummaryStats] = useState({
     totalRequests: 0,
     successRate: 0,
@@ -89,7 +88,6 @@ export default function SettingsPage() {
     }
   }, [toast]);
 
-  // Formatters
   const formatPercentage = (value: number | undefined | null): string => {
     if (value === undefined || value === null || isNaN(value)) {
         return "N/A";
@@ -104,7 +102,6 @@ export default function SettingsPage() {
     return value.toLocaleString();
   }
 
-  // Fetch data for the summary cards
   const fetchSummaryStats = useCallback(async () => {
     setSummaryStatsLoading(true);
     setSummaryStatsError(null);
@@ -136,12 +133,10 @@ export default function SettingsPage() {
     fetchSummaryStats();
   }, [fetchSettings, fetchSummaryStats]);
 
-  // Re-fetch summary stats when timeRange changes
   useEffect(() => {
     fetchSummaryStats();
   }, [timeRange, fetchSummaryStats]);
 
-  // Set isClient to true after mounting
   useEffect(() => {
     setIsClient(true);
   }, []);
@@ -190,7 +185,6 @@ export default function SettingsPage() {
   };
 
   const handleInputChange = (field: keyof Settings, value: string | number) => {
-    // Ensure numeric fields are stored as numbers
     const numericFields: (keyof Settings)[] = [
       'keyRotationRequestCount',
       'maxFailureCount',
@@ -306,7 +300,6 @@ export default function SettingsPage() {
     <AppLayout>
       <TooltipProvider>
         <div className="p-6 space-y-6">
-          {/* Header section */}
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
@@ -339,7 +332,6 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Display summary stats error if exists */}
           {summaryStatsError && (
             <Alert variant="destructive">
               <AlertCircle className="w-4 h-4" />
@@ -348,17 +340,14 @@ export default function SettingsPage() {
             </Alert>
           )}
 
-          {/* Main content wrapped in client check */}
           {!isClient ? (
             <div className="space-y-6">
-              {/* Placeholder skeleton loader for summary cards */}
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Card><CardContent className="pt-6 h-[108px] flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></CardContent></Card>
                 <Card><CardContent className="pt-6 h-[108px] flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></CardContent></Card>
                 <Card><CardContent className="pt-6 h-[108px] flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></CardContent></Card>
                 <Card><CardContent className="pt-6 h-[108px] flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></CardContent></Card>
               </div>
-              {/* Placeholder skeleton loader for settings form */}
               <Card>
                 <CardHeader>
                   <CardTitle>System Settings</CardTitle>
@@ -373,7 +362,6 @@ export default function SettingsPage() {
             </div>
           ) : (
             <>
-              {/* Stats Summary Cards */}
               {summaryStatsLoading ? (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                   <Card><CardContent className="pt-6"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></CardContent></Card>
@@ -433,7 +421,6 @@ export default function SettingsPage() {
                 </div>
               )}
 
-              {/* Display settings errors if they exist */}
               {error && (
                 <Alert variant="destructive" className="mb-4">
                   <AlertCircle className="w-4 h-4" />
@@ -442,7 +429,6 @@ export default function SettingsPage() {
                 </Alert>
               )}
 
-              {/* Display success message */}
               {isSaved && (
                 <Alert className="mb-4">
                   <CheckCircle className="w-4 h-4" />
@@ -451,7 +437,6 @@ export default function SettingsPage() {
                 </Alert>
               )}
 
-              {/* Settings Form */}
               <Card className="hover-animate">
                 <CardHeader>
                   <CardTitle>System Settings</CardTitle>
@@ -555,14 +540,12 @@ export default function SettingsPage() {
 
               <Separator className="my-6" />
 
-              {/* Database Operations */}
               <Card>
                 <CardHeader>
                   <CardTitle>Database Operations</CardTitle>
                   <CardDescription>Manage your data</CardDescription>
                 </CardHeader>
                 <CardContent className="grid gap-6 sm:grid-cols-2">
-                  {/* Log Cleanup */}
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-lg">Log Cleanup</CardTitle>
@@ -586,14 +569,12 @@ export default function SettingsPage() {
                     </CardFooter>
                   </Card>
 
-                  {/* Data Export/Import */}
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-lg">Data Backup</CardTitle>
                       <CardDescription>Export or import system data</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      {/* Export Button */}
                       <Button
                         variant="outline"
                         onClick={handleExportData}
@@ -603,7 +584,6 @@ export default function SettingsPage() {
                         Export All Data
                       </Button>
 
-                      {/* Import Section */}
                       <div className="space-y-2">
                         <Label htmlFor="import-file">Import Data (JSON)</Label>
                         <Input

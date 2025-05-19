@@ -52,13 +52,12 @@ interface ApiKey {
   _id: string;
   key: string;
   name?: string;
-  profile?: string | null; // Profile name for key grouping
+  profile?: string | null;
   isActive: boolean;
   lastUsed: string | null;
-  rateLimitResetAt: string | null; // Global rate limit reset time
+  rateLimitResetAt: string | null;
   failureCount: number;
-  requestCount: number; // Total requests
-  // New fields for daily rate limiting
+  requestCount: number;
   dailyRateLimit?: number | null;
   dailyRequestsUsed: number;
   lastResetDate: string | null;
@@ -108,7 +107,6 @@ export default function KeyStats() {
     }
   };
 
-  // Extract unique profiles from keys
   const extractProfiles = (keys: ApiKey[]): string[] => {
     const profileSet = new Set<string>();
 
@@ -121,7 +119,6 @@ export default function KeyStats() {
     return Array.from(profileSet).sort();
   };
 
-  // Group keys by profile
   const groupKeysByProfile = (keys: ApiKey[]): { [profile: string]: ApiKey[] } => {
     const grouped: { [profile: string]: ApiKey[] } = {
       'Default': [] // Always include a Default group
@@ -138,25 +135,19 @@ export default function KeyStats() {
     return grouped;
   };
 
-  // Get existing profiles
   const existingProfiles = extractProfiles(keys);
 
-  // Get keys grouped by profile
   const keysByProfile = groupKeysByProfile(keys);
 
-  // Fetch keys on mount
   useEffect(() => {
     fetchKeys();
   }, []);
 
-  // Refresh keys data
   const refreshData = () => {
     fetchKeys();
   };
 
-  // Function to get status badge
   const getStatusBadge = (key: ApiKey) => {
-    // Order of checks matters: Disabled > Daily Limited > Globally Limited > Active
     if (!key.isActive) {
       return <Badge variant="outline" className="text-muted-foreground">Disabled</Badge>;
     }
@@ -169,7 +160,6 @@ export default function KeyStats() {
     return <Badge variant="default" className="bg-green-500 hover:bg-green-600">Active</Badge>;
   };
 
-  // Function to format date
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Never';
 
@@ -177,7 +167,6 @@ export default function KeyStats() {
     return date.toLocaleString();
   };
 
-  // Function to delete a key
   const handleDeleteKey = async () => {
     if (!selectedKeyId) return;
 
@@ -209,17 +198,13 @@ export default function KeyStats() {
     }
   };
 
-  // Function to toggle key status
   const proceedWithToggle = async (keyId: string) => {
-    // Get the key that needs to be toggled
     const keyToUpdate = keys.find(k => k._id === keyId);
     if (!keyToUpdate) return;
     
-    // Set loading state
     setIsToggling(prev => ({...prev, [keyId]: true}));
     
     try {
-      // Send request to update the key's status
       const response = await fetch(`/api/admin/keys/${keyId}`, {
         method: 'PATCH',
         headers: {
@@ -234,8 +219,7 @@ export default function KeyStats() {
         throw new Error('Failed to update key status');
       }
       
-      // Update the local state with the new status
-      setKeys(keys.map(key => 
+      setKeys(keys.map(key =>
         key._id === keyId 
           ? {...key, isActive: !key.isActive} 
           : key
@@ -253,20 +237,16 @@ export default function KeyStats() {
         variant: 'destructive',
       });
     } finally {
-      // Clear the loading state
       setIsToggling(prev => ({...prev, [keyId]: false}));
-      // Close the warning dialog if it was open
       setIsWarnDialogOpen(false);
     }
   };
 
   const handleToggleKey = (keyId: string, currentStatus: boolean, isDisabledByRateLimit: boolean) => {
-    // If enabling a key that is rate limited, show warning
     if (!currentStatus && isDisabledByRateLimit) {
       setKeyToToggle(keyId);
       setIsWarnDialogOpen(true);
     } else {
-      // Otherwise, proceed normally
       proceedWithToggle(keyId);
     }
   };
@@ -285,12 +265,10 @@ export default function KeyStats() {
     setIsSavingChanges(true);
     
     try {
-      // Convert rate limit to number or null
-      const dailyRateLimit = editRateLimitValue.trim() !== '' 
-        ? parseInt(editRateLimitValue, 10) 
+      const dailyRateLimit = editRateLimitValue.trim() !== ''
+        ? parseInt(editRateLimitValue, 10)
         : null;
       
-      // Validate the rate limit if it's not null
       if (dailyRateLimit !== null && (isNaN(dailyRateLimit) || dailyRateLimit < 0)) {
         throw new Error('Daily rate limit must be a valid positive number');
       }
@@ -312,10 +290,8 @@ export default function KeyStats() {
         throw new Error(errorData.error || 'Failed to update key');
       }
       
-      // Get updated key data
       const updatedKey = await response.json();
       
-      // Update the keys in state
       setKeys(keys.map(key => key._id === editingKey._id ? updatedKey : key));
       
       toast({
@@ -323,7 +299,6 @@ export default function KeyStats() {
         description: 'Key settings were updated successfully',
       });
       
-      // Close the dialog
       setIsEditDialogOpen(false);
     } catch (error: any) {
       console.error('Error updating key:', error);
@@ -349,7 +324,6 @@ export default function KeyStats() {
     setSelectedKeyIds(updatedSelection);
   };
 
-  // Handle select all keys
   const handleSelectAll = (isSelected: boolean) => {
     if (isSelected) {
       const allKeyIds = new Set(keys.map(key => key._id));
@@ -359,22 +333,18 @@ export default function KeyStats() {
     }
   };
 
-  // Handle apply bulk limit
   const handleApplyBulkLimit = async () => {
     if (selectedKeyIds.size === 0) return;
     
     setIsApplyingBulkLimit(true);
     
     try {
-      // Convert input to number or null
       let rateLimit: number | null = bulkLimitValue.trim() ? parseInt(bulkLimitValue, 10) : null;
       
-      // Validate rate limit if not null
       if (rateLimit !== null && (isNaN(rateLimit) || rateLimit < 0)) {
         throw new Error('Daily rate limit must be a valid positive number');
       }
       
-      // Send bulk update request
       const response = await fetch('/api/admin/keys/bulk', {
         method: 'PATCH',
         headers: {
@@ -400,10 +370,8 @@ export default function KeyStats() {
         description: `Updated ${result.updatedCount} keys with new daily rate limit`,
       });
       
-      // Refresh the keys to show updated values
       fetchKeys();
       
-      // Close the dialog
       setIsBulkLimitDialogOpen(false);
       
     } catch (error: any) {
@@ -418,7 +386,6 @@ export default function KeyStats() {
     }
   };
 
-  // Handle bulk delete
   const handleBulkDelete = async () => {
     if (selectedKeyIds.size === 0) return;
     
@@ -447,11 +414,9 @@ export default function KeyStats() {
         description: `Successfully deleted ${result.deletedCount} keys`,
       });
       
-      // Reset selection and refresh
       setSelectedKeyIds(new Set());
       fetchKeys();
       
-      // Close the dialog
       setIsBulkDeleteDialogOpen(false);
     } catch (error: any) {
       console.error('Error deleting keys:', error);
@@ -465,7 +430,6 @@ export default function KeyStats() {
     }
   };
 
-  // Reusable KeyTable component
   const KeyTable = ({
     profileKeys,
     isLoading,
@@ -491,11 +455,9 @@ export default function KeyStats() {
     setSelectedKeyId: (id: string | null) => void,
     onDeleteOpen: () => void,
   }) => {
-    // Calculate if all keys in this profile are selected
     const isAllProfileSelected = profileKeys.length > 0 &&
       profileKeys.every(key => selectedKeyIds.has(key._id));
 
-    // Handle select all for this profile
     const handleSelectAllProfile = (isSelected: boolean) => {
       const newSelectedIds = new Set(selectedKeyIds);
 
@@ -507,7 +469,6 @@ export default function KeyStats() {
         }
       });
 
-      // Update the parent's selectedKeyIds state
       setSelectedKeyIds(newSelectedIds);
     };
 
@@ -535,9 +496,7 @@ export default function KeyStats() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {/* Conditional Rendering Logic */}
             {isLoading ? (
-              /* Skeleton Loading State */
               Array.from({ length: 2 }).map((_, index) => (
                 <TableRow key={`skeleton-${index}`}>
                   <TableCell><Skeleton className="h-4 w-4" /></TableCell>
@@ -553,14 +512,12 @@ export default function KeyStats() {
                 </TableRow>
               ))
             ) : profileKeys.length === 0 ? (
-              /* No Keys State */
               <TableRow>
                 <TableCell colSpan={10} className="text-center py-4 text-muted-foreground">
                   No API keys found in this profile.
                 </TableCell>
               </TableRow>
             ) : (
-              /* Keys Available State */
               profileKeys.map((key) => (
                 <TableRow key={key._id}>
                   <TableCell>
@@ -629,7 +586,6 @@ export default function KeyStats() {
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        {/* Left side: Selection count and bulk actions */}
         <div className="flex items-center space-x-4">
           {selectedKeyIds.size > 0 && (
             <>
@@ -676,7 +632,6 @@ export default function KeyStats() {
           )}
         </div>
 
-        {/* Right side: Total count and refresh */}
         <div className="flex items-center space-x-4">
           <span className="text-sm text-muted-foreground">
             Total: {keys.length} keys
@@ -694,7 +649,6 @@ export default function KeyStats() {
         </div>
       </div>
 
-      {/* Profile-based Tabs */}
       <Tabs defaultValue="all" className="w-full">
         <TabsList className="mb-4">
           <TabsTrigger value="all">All Profiles</TabsTrigger>
@@ -703,7 +657,6 @@ export default function KeyStats() {
           ))}
         </TabsList>
 
-        {/* All Profiles Tab */}
         <TabsContent value="all">
           <KeyTable
             profileKeys={keys}
@@ -720,7 +673,6 @@ export default function KeyStats() {
           />
         </TabsContent>
         
-        {/* Individual Profile Tabs */}
         {existingProfiles.map(profile => (
           <TabsContent key={profile} value={profile}>
             <KeyTable
@@ -740,7 +692,6 @@ export default function KeyStats() {
         ))}
       </Tabs>
       
-      {/* Delete Key Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -758,7 +709,6 @@ export default function KeyStats() {
         </AlertDialogContent>
       </AlertDialog>
       
-      {/* Rate Limit Override Warning */}
       <AlertDialog open={isWarnDialogOpen} onOpenChange={setIsWarnDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -782,7 +732,6 @@ export default function KeyStats() {
         </AlertDialogContent>
       </AlertDialog>
       
-      {/* Edit Key Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -844,7 +793,6 @@ export default function KeyStats() {
         </DialogContent>
       </Dialog>
       
-      {/* Bulk Limit Dialog */}
       <Dialog open={isBulkLimitDialogOpen} onOpenChange={setIsBulkLimitDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -886,7 +834,6 @@ export default function KeyStats() {
         </DialogContent>
       </Dialog>
       
-      {/* Bulk Delete Dialog */}
       <AlertDialog open={isBulkDeleteDialogOpen} onOpenChange={setIsBulkDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

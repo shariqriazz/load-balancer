@@ -34,16 +34,15 @@ export default function Dashboard() {
   const [stats, setStats] = useState({
     totalKeys: 0,
     activeKeys: 0,
-    totalRequests: 0, // Lifetime total from DB
-    totalRequestsToday: 0, // Since midnight from DB
-    totalRequests24h: 0, // Last 24h from logs
+    totalRequests: 0,
+    totalRequestsToday: 0,
+    totalRequests24h: 0,
     errorRate: 0
   });
   
   const { toast } = useToast();
   const [isClient, setIsClient] = useState(false);
 
-  // Set isClient to true after mounting
   useEffect(() => {
     setIsClient(true);
   }, []);
@@ -52,28 +51,24 @@ export default function Dashboard() {
     setIsLoading(true);
     setError(null);
     try {
-      // Fetch keys to get total and active counts
       const keysResponse = await fetch('/api/admin/keys');
       if (!keysResponse.ok) {
         throw new Error(`Error fetching keys: ${keysResponse.statusText}`);
       }
       const keysData = await keysResponse.json();
       
-      // Fetch stats for request data
       const statsResponse = await fetch(`/api/stats?timeRange=${timeRange}`);
       if (!statsResponse.ok) {
         throw new Error(`Error fetching stats: ${statsResponse.statusText}`);
       }
       const statsData = await statsResponse.json();
       
-      // Calculate stats
       const totalKeys = keysData.length;
       const activeKeys = keysData.filter((key: any) => key.isActive).length;
-      const totalRequests = statsData.totalRequests || 0; // Lifetime
-      const totalRequestsToday = statsData.totalRequestsToday || 0; // Since midnight
-      const totalRequests24h = statsData.totalRequests24h || 0; // Last 24h from logs
+      const totalRequests = statsData.totalRequests || 0;
+      const totalRequestsToday = statsData.totalRequestsToday || 0;
+      const totalRequests24h = statsData.totalRequests24h || 0;
       
-      // Calculate error rate based on 24h requests if available, otherwise lifetime
       const relevantTotalRequestsForErrorRate = totalRequests24h > 0 ? totalRequests24h : totalRequests;
       const errorRate = relevantTotalRequestsForErrorRate > 0 && statsData.apiKeyErrors !== undefined
         ? ((statsData.apiKeyErrors / relevantTotalRequestsForErrorRate) * 100).toFixed(1)
@@ -82,9 +77,9 @@ export default function Dashboard() {
       setStats({
         totalKeys,
         activeKeys,
-        totalRequests, // Lifetime
-        totalRequestsToday, // Since midnight
-        totalRequests24h, // Last 24h
+        totalRequests,
+        totalRequestsToday,
+        totalRequests24h,
         errorRate: parseFloat(errorRate as string)
       });
     } catch (err: any) {
@@ -136,7 +131,6 @@ export default function Dashboard() {
   return (
     <AppLayout>
       <TooltipProvider>
-        {/* Header with title and refresh button */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
@@ -174,9 +168,7 @@ export default function Dashboard() {
           renderLoading()
         ) : (
           <>
-            {/* Stats Cards */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 mb-8">
-              {/* Total Keys Card */}
               <Card className="overflow-hidden transition-all duration-300 border-0 shadow-md hover:shadow-lg hover-animate">
                 <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-1)/0.2)] to-transparent opacity-50 pointer-events-none" />
                 <CardContent className="pt-6">
@@ -191,7 +183,6 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
 
-              {/* Active Keys Card */}
               <Card className="overflow-hidden transition-all duration-300 border-0 shadow-md hover:shadow-lg hover-animate">
                 <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-2)/0.2)] to-transparent opacity-50 pointer-events-none" />
                 <CardContent className="pt-6">
@@ -206,7 +197,6 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
 
-              {/* Requests (Last 24 Hours) Card */}
               <Card className="overflow-hidden transition-all duration-300 border-0 shadow-md hover:shadow-lg hover-animate">
                 <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-3)/0.2)] to-transparent opacity-50 pointer-events-none" />
                 <CardContent className="pt-6">
@@ -221,7 +211,6 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
 
-              {/* Requests Today Card */}
               <Card className="overflow-hidden transition-all duration-300 border-0 shadow-md hover:shadow-lg hover-animate">
                 <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-4)/0.2)] to-transparent opacity-50 pointer-events-none" />
                 <CardContent className="pt-6">
@@ -236,7 +225,6 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
 
-              {/* Total Requests Lifetime Card */}
               <Card className="overflow-hidden transition-all duration-300 border-0 shadow-md hover:shadow-lg hover-animate">
                 <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-5)/0.2)] to-transparent opacity-50 pointer-events-none" />
                 <CardContent className="pt-6">
@@ -251,7 +239,6 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
 
-              {/* Error Rate Card */}
               <Card className="overflow-hidden transition-all duration-300 border-0 shadow-md hover:shadow-lg hover-animate">
                 <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-1)/0.2)] to-transparent opacity-50 pointer-events-none" />
                 <CardContent className="pt-6">
@@ -267,7 +254,6 @@ export default function Dashboard() {
               </Card>
             </div>
 
-            {/* Keys Stats Component */}
             <Card className="border-0 shadow-lg interactive-container hover-animate">
               <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--primary)/0.05)] via-transparent to-[hsl(var(--secondary)/0.05)] pointer-events-none" />
               <CardHeader>

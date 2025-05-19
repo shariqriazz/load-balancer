@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic'; // Force dynamic rendering
+export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { getLogs, logError } from '@/lib/services/logger';
 
@@ -22,12 +22,10 @@ export async function GET(request: NextRequest) {
       search: search || undefined,
     };
 
-    // Validate limit if provided
     if (options.limit !== undefined && (isNaN(options.limit) || options.limit <= 0)) {
         return NextResponse.json({ error: 'Invalid limit specified. Must be a positive number.' }, { status: 400 });
     }
 
-    // Basic date validation (YYYY-MM-DD format)
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (options.startDate && !dateRegex.test(options.startDate)) {
         return NextResponse.json({ error: 'Invalid startDate format. Use YYYY-MM-DD.' }, { status: 400 });

@@ -34,7 +34,6 @@ export default function LoginPage() {
       });
 
       if (response.ok) {
-        // Redirect to dashboard on successful login
         router.push('/dashboard');
         toast({
           title: 'Login Successful',

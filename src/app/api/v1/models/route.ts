@@ -1,31 +1,27 @@
-export const dynamic = 'force-dynamic'; // Force dynamic rendering
+export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import keyManager from '@/lib/services/keyManager';
 import { logError } from '@/lib/services/logger';
-import { readSettings } from '@/lib/settings'; // Import readSettings
+import { readSettings } from '@/lib/settings';
 
 export async function GET(req: NextRequest) {
   const maxRetries = 3;
   let retryCount = 0;
 
-  // Get settings to retrieve the configured endpoint
   const settings = await readSettings();
-  // Use configured endpoint or fall back to default
   const baseEndpoint = settings.endpoint || 'https://generativelanguage.googleapis.com/v1beta/openai';
   const upstreamUrl = `${baseEndpoint}/models`;
   
-  console.log('Using endpoint for models:', upstreamUrl); // Add logging
+  console.log('Using endpoint for models:', upstreamUrl);
 
   while (retryCount < maxRetries) {
-    let keyData: { key: string; id: string } | null = null; // Store the object returned by getKey
+    let keyData: { key: string; id: string } | null = null;
     try {
-      keyData = await keyManager.getKey(); // Get key data object
+      keyData = await keyManager.getKey();
 
-      // Ensure a key was actually retrieved
       if (!keyData || !keyData.key) {
           logError(new Error('No available API key found'), { context: 'Models endpoint - getKey' });
-          // If no key is found after retries, return an error.
           return NextResponse.json(
             { error: { message: 'No available API keys to process the request.', type: 'no_key_available' } },
             { status: 503 } // Service Unavailable might be appropriate
@@ -34,43 +30,28 @@ export async function GET(req: NextRequest) {
 
       const axiosConfig = {
         headers: {
-          // Use the key string from the keyData object
-          'Authorization': `Bearer ${keyData.key}`,
-          // Add other headers if required by the specific OpenAI-compatible endpoint
+          'Authorization': `Bearer ${keyData.key}`
         }
       };
 
-      // Make the request to the upstream URL
       const response = await axios.get(upstreamUrl, axiosConfig);
 
-      // Mark the key as successful only if the request succeeded
       await keyManager.markKeySuccess();
 
-      // Return the data from the upstream API
       return NextResponse.json(response.data);
 
     } catch (error: any) {
-      // Mark error (only pass the error object)
-      // Note: markKeyError internally uses the keyManager's currentKey state
       const isRateLimit = await keyManager.markKeyError(error);
 
-      // Retry logic: Retry on rate limits or 5xx errors if retries remain
       if ((isRateLimit || error.response?.status >= 500) && retryCount < maxRetries - 1) {
           retryCount++;
-          // Log retry attempt, include key ID if available from keyData
           logError(error, { context: 'Models endpoint - Retrying', retryCount, keyIdUsed: keyData?.id, statusCode: error.response?.status });
-          continue; // Go to the next iteration of the while loop
+          continue;
       } else if (!keyData) {
-           // If keyData was null (e.g., getKey failed initially), log and exit loop
            logError(error, { context: 'Models endpoint - Error before key obtained', retryCount });
-          // No key to mark as error, break the loop or return error directly
-          // Breaking might lead to the maxRetries error below, which is okay.
           break;
       }
 
-
-      // Log the final error after retries or for non-retryable errors
-      // Log the final error after retries or for non-retryable errors
       logError(error, {
         context: 'Models endpoint - Final Error',
         retryCount,
@@ -79,7 +60,6 @@ export async function GET(req: NextRequest) {
         responseData: error.response?.data // Log response data if available
       });
 
-      // Return the error response from the upstream API if available, otherwise a generic error
       return NextResponse.json(
         {
           error: {
@@ -92,7 +72,6 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // This part is reached only if the while loop completes (max retries exceeded)
   logError(new Error('Max retries exceeded'), { context: 'Models endpoint - Max Retries' });
   return NextResponse.json(
     {
