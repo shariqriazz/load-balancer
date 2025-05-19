@@ -1,36 +1,6 @@
-"use client"; // Add this because Chakra UI components might need it
+"use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import {
-  // Grid, // Removed unused import
-  // GridItem, // Removed unused import
-  Box,
-  Heading,
-  Text,
-  Tabs,
-  TabList,
-  TabPanels,
-  Tab,
-  TabPanel,
-  Spinner,
-  Alert,
-  AlertIcon,
-  Code,
-  VStack,
-  HStack,
-  Input,
-  Button,
-  Select,
-  useToast,
-  useColorModeValue,
-  Stat,
-  StatLabel,
-  StatNumber,
-  StatHelpText,
-  Card,
-  CardBody,
-  SimpleGrid, // Or Flex if preferred
-} from "@chakra-ui/react";
 import AppLayout from "@/components/layout/AppLayout";
 import { Input as UiInput } from "@/components/ui/input";
 import { Button as UiButton } from "@/components/ui/button";
@@ -54,6 +24,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import {
+  Card,
   CardHeader,
   CardTitle,
   CardDescription,
@@ -62,6 +33,7 @@ import {
 import { Alert as UiAlert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2, AlertCircle, RefreshCw, BarChart3, CheckCircle, Clock, Key } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 type LogType = "requests" | "errors" | "keys";
 
@@ -78,18 +50,11 @@ const LogsPage = () => {
   const [summaryStatsData, setSummaryStatsData] = useState<any>(null);
   const [summaryStatsLoading, setSummaryStatsLoading] = useState<boolean>(true);
   const [summaryStatsError, setSummaryStatsError] = useState<string | null>(null);
-  const toast = useToast();
+  const { toast } = useToast();
   const [appErrorStats, setAppErrorStats] = useState<{ totalErrors: number, apiKeyErrors: number } | null>(null);
   const [appErrorStatsLoading, setAppErrorStatsLoading] = useState<boolean>(true);
   const [appErrorStatsError, setAppErrorStatsError] = useState<string | null>(null);
   const [isClient, setIsClient] = useState<boolean>(false); // State to track client-side mount
-
-  // Define colors for light/dark mode
-  const logBoxBg = useColorModeValue("gray.50", "gray.700");
-  const codeBg = useColorModeValue("white", "gray.800");
-  const codeColor = useColorModeValue("gray.800", "gray.100");
-  const cardBg = useColorModeValue("white", "gray.800"); // For the new card
-  const borderColor = useColorModeValue("gray.200", "gray.700"); // For the new card
 
   const [summaryStats, setSummaryStats] = useState({
     totalRequests: 0,
