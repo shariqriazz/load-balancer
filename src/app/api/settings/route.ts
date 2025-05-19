@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
       maxRetries: validateNumber(body.maxRetries, currentSettings.maxRetries, 0, 10),
       endpoint: validateString(body.endpoint, currentSettings.endpoint),
       failoverDelay: validateNumber(body.failoverDelay, currentSettings.failoverDelay, 0, 60),
+      enableGoogleGrounding: typeof body.enableGoogleGrounding === 'boolean' ? body.enableGoogleGrounding : currentSettings.enableGoogleGrounding,
     };
 
     console.log('Saving settings:', newSettings);
