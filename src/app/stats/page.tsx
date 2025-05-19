@@ -1,41 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  Box,
-  // Grid, // Removed unused import
-  // GridItem, // Removed unused import
-  Heading,
-  Text,
-  Flex,
-  Select,
-  FormControl,
-  FormLabel,
-  Card,
-  CardHeader,
-  CardBody,
-  Divider,
-  Spinner,
-  Alert,
-  AlertIcon,
-  AlertTitle,
-  AlertDescription,
-  useColorModeValue,
-  Stat,
-  StatLabel,
-  StatNumber,
-  StatHelpText,
-  Tabs,
-  TabList,
-  TabPanels,
-  Tab,
-  TabPanel,
-  SimpleGrid,
-  useToast,
-  Button,
-  IconButton,
-  Tooltip,
-} from "@chakra-ui/react";
+import { useState, useEffect, useMemo } from "react";
+import { format, parseISO } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
 import {
   LineChart,
   Line,
@@ -51,31 +18,105 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import { FiRefreshCw } from "react-icons/fi";
-import AppLayout from "@/components/layout/AppLayout"; // Import AppLayout
+import {
+  RefreshCw,
+  AlertTriangle,
+  Info,
+  Loader2,
+  BarChart3,
+  CheckCircle,
+  Clock,
+  Key
+} from "lucide-react";
+
+import AppLayout from "@/components/layout/AppLayout";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
+import { cn } from "@/lib/utils";
+
+// --- Timezone Formatting Helper ---
+const formatInTimeZone = (dateInput: string | Date | undefined | null, tz: string, fmt: string): string => {
+  if (!dateInput) return 'Invalid Date';
+  try {
+    const date = typeof dateInput === 'string' ? parseISO(dateInput) : dateInput;
+    if (isNaN(date.getTime())) { // Check if date is valid
+        return 'Invalid Date';
+    }
+    const zonedDate = toZonedTime(date, tz);
+    return format(zonedDate, fmt);
+  } catch (e) {
+    console.error("Error formatting date:", e, "Input:", dateInput);
+    // Fallback to ISO string part or fixed text if formatting fails
+    if (typeof dateInput === 'string') {
+        // Basic check if it looks like an ISO string
+        return dateInput.length > 10 ? dateInput.substring(0, 10) : 'Invalid Date';
+    }
+    return 'Invalid Date';
+  }
+};
+// --- End Timezone Formatting Helper ---
+
+// Interface for Pie Chart data entries
+interface PieChartEntry {
+  name: string;
+  value: number;
+  fill: string;
+  isActive?: boolean; 
+  opacity?: number;
+}
+
+// --- Chart Config --- (Using CSS variables defined in globals.css)
+const chartConfig = {
+  requests: {
+    label: "Requests",
+    color: "hsl(var(--chart-1))"
+  },
+  errors: {
+    label: "Errors",
+    color: "hsl(var(--chart-2))"
+  },
+  keyErrors: {
+    label: "API Key Errors",
+    color: "hsl(var(--chart-3))"
+  },
+  modelUsage: {
+    label: "Models",
+    color: "hsl(var(--chart-4))"
+  },
+  keyUsage: {
+    label: "API Keys",
+    color: "hsl(var(--chart-5))"
+  },
+};
+
+// Colors for pie charts with enhanced visual appeal
+const PIE_COLORS = [
+    "hsl(var(--chart-1))",
+    "hsl(var(--chart-2))",
+    "hsl(var(--chart-3))",
+    "hsl(var(--chart-4))",
+    "hsl(var(--chart-5))",
+    "hsl(190, 80%, 50%)",
+    "hsl(120, 70%, 50%)",
+    "hsl(60, 80%, 60%)",
+    "hsl(30, 90%, 60%)",
+    "hsl(300, 70%, 60%)",
+];
+// --- End Chart Config ---
 
 export default function StatsPage() {
   const [timeRange, setTimeRange] = useState("7d");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<any>(null);
-
-  const cardBg = useColorModeValue("white", "gray.800");
-  const borderColor = useColorModeValue("gray.200", "gray.700");
-  const lineColor = useColorModeValue("#3182CE", "#63B3ED");
-  const errorColor = useColorModeValue("#E53E3E", "#FC8181");
-  const toast = useToast();
-  const axisTickColor = useColorModeValue("gray.700", "#FFFFFF"); // Explicit white for dark mode
- 
-  // Colors for pie charts
-  const COLORS = [
-    "#0088FE",
-    "#00C49F",
-    "#FFBB28",
-    "#FF8042",
-    "#8884D8",
-    "#82CA9D",
-  ];
+  const [userTimeZone, setUserTimeZone] = useState<string>('UTC');
+  const { toast } = useToast();
 
   const fetchStats = async () => {
     setIsLoading(true);
@@ -84,19 +125,19 @@ export default function StatsPage() {
     try {
       const response = await fetch(`/api/stats?timeRange=${timeRange}`);
       if (!response.ok) {
-        throw new Error(`Error fetching statistics: ${response.statusText}`);
+        const errorData = await response.text();
+        throw new Error(`Error fetching statistics (${response.status}): ${errorData || response.statusText}`);
       }
       const data = await response.json();
       setStats(data);
     } catch (err: any) {
-      setError(err.message || "Failed to fetch statistics");
+      const errorMessage = err.message || "Failed to fetch statistics";
+      setError(errorMessage);
       console.error("Error fetching stats:", err);
       toast({
-        title: "Error",
-        description: err.message || "Failed to fetch statistics",
-        status: "error",
-        duration: 5000,
-        isClosable: true,
+        title: "Error Fetching Stats",
+        description: errorMessage,
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -104,465 +145,483 @@ export default function StatsPage() {
   };
 
   useEffect(() => {
+    setUserTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
     fetchStats();
   }, [timeRange]);
 
-  // Handle case when stats is null
-  if (!isLoading && !error && !stats) {
-    return (
-      <AppLayout> {/* Use AppLayout for no-data state */}
-        {/* Removed Grid and Sidebar */}
-        <Box p={6}> {/* Wrap content in a Box or Fragment if needed */}
-          <Alert status="info">
-            <AlertIcon />
-            <AlertTitle>No Data</AlertTitle>
-            <AlertDescription>
-              No statistics data is available yet. Make some API requests to
-              generate statistics.
-            </AlertDescription>
-          </Alert>
-        </Box>
-      </AppLayout>
-    );
+  // Format percentage for display
+  const formatPercentage = (value: number | undefined | null): string => {
+    if (value === undefined || value === null || isNaN(value)) {
+        return "N/A";
+    }
+    return `${value.toFixed(1)}%`;
+  };
+
+  const formatNumber = (value: number | undefined | null): string => {
+    if (value === undefined || value === null || isNaN(value)) {
+        return "N/A";
+    }
+    return value.toLocaleString();
   }
 
+  // --- Memoized Formatted Data ---
+  const formattedRequestData = useMemo(() => {
+    if (!stats?.requestData) return [];
+    const formatString = timeRange === '24h' ? 'HH:mm' : 'MM-dd';
+    return stats.requestData.map((item: any) => ({
+      ...item,
+      date: formatInTimeZone(item.name, userTimeZone, formatString),
+      requests: item.requests ?? 0,
+      errors: item.errors ?? 0,
+      keyErrors: item.keyErrors ?? 0,
+    }));
+  }, [stats?.requestData, userTimeZone, timeRange]);
+
+  const formattedHourlyData = useMemo(() => {
+    if (!stats?.hourlyData) return [];
+    // Ensure data is sorted by hour for correct chart display
+    const sortedData = [...stats.hourlyData].sort((a, b) => {
+        try {
+            return parseISO(a.hour).getTime() - parseISO(b.hour).getTime();
+        } catch {
+            return 0; // Handle potential invalid date strings
+        }
+    });
+    return sortedData.map((item: any) => ({
+      ...item,
+      hour: formatInTimeZone(item.hour, userTimeZone, 'HH:mm'),
+      requests: item.requests ?? 0,
+    }));
+  }, [stats?.hourlyData, userTimeZone]);
+
+  const keyUsageData = useMemo(() => {
+    return stats?.keyUsageData?.map((item: any, index: number) => ({
+        ...item,
+        fill: PIE_COLORS[index % PIE_COLORS.length],
+        opacity: item.isActive ? 1 : 0.5,
+    })) || [];
+  }, [stats?.keyUsageData]);
+
+  const modelUsageData = useMemo(() => {
+     return stats?.modelUsageData?.map((item: any, index: number) => ({
+        ...item,
+        fill: PIE_COLORS[index % PIE_COLORS.length],
+     })) || [];
+  }, [stats?.modelUsageData]);
+  // --- End Memoized Formatted Data ---
+
+  const renderLoading = () => (
+      <div className="flex items-center justify-center h-96">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="ml-2 text-muted-foreground">Loading statistics...</p>
+      </div>
+  );
+
+  const renderError = () => (
+       <Alert variant="destructive" className="mb-6">
+          <AlertTriangle className="w-4 h-4" />
+          <AlertTitle>Error Fetching Statistics</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+       </Alert>
+  );
+
+  const renderNoData = () => (
+       <Alert className="mb-6">
+          <Info className="w-4 h-4" />
+          <AlertTitle>No Data Available</AlertTitle>
+          <AlertDescription>
+            No statistics found for the selected period. Try changing the time range or refreshing.
+          </AlertDescription>
+       </Alert>
+  );
+
   return (
-    <AppLayout> {/* Use AppLayout for main content */}
-      {/* Removed Grid and Sidebar */}
-      {/* Main content starts here */}
-        <Flex justify="space-between" align="center" mb={6}>
-          <Box>
-            <Heading size="lg">Usage Statistics</Heading>
-            <Text color="gray.500">Monitor your API usage</Text>
-          </Box>
+    <AppLayout>
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Usage Statistics</h1>
+          <p className="text-sm text-muted-foreground">Monitor your API usage</p>
+        </div>
 
-          <Flex gap={2} align="center">
-            <FormControl w="200px">
-              <Select
-                value={timeRange}
-                onChange={(e) => setTimeRange(e.target.value)}
-              >
-                <option value="24h">Last 24 Hours</option>
-                <option value="7d">Last 7 Days</option>
-                <option value="30d">Last 30 Days</option>
-                <option value="90d">Last 90 Days</option>
-              </Select>
-            </FormControl>
-            <Tooltip label="Refresh Statistics">
-              <IconButton
-                aria-label="Refresh statistics"
-                icon={<FiRefreshCw />}
-                onClick={fetchStats}
-                isLoading={isLoading}
-              />
+        <div className="flex items-center gap-2">
+          <Select value={timeRange} onValueChange={setTimeRange}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Select time range" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="24h">Last 24 Hours</SelectItem>
+              <SelectItem value="7d">Last 7 Days</SelectItem>
+              <SelectItem value="30d">Last 30 Days</SelectItem>
+              <SelectItem value="90d">Last 90 Days</SelectItem>
+            </SelectContent>
+          </Select>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" onClick={fetchStats} disabled={isLoading}>
+                  <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+                  <span className="sr-only">Refresh statistics</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Refresh Statistics</p>
+              </TooltipContent>
             </Tooltip>
-          </Flex>
-        </Flex>
+          </TooltipProvider>
+        </div>
+      </div>
 
-        {error && (
-          <Alert status="error" mb={6} borderRadius="md">
-            <AlertIcon />
-            <AlertTitle>Error!</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+      {error && renderError()}
 
-        {isLoading ? (
-          <Flex justify="center" align="center" h="400px">
-            <Spinner size="xl" color="blue.500" />
-          </Flex>
-        ) : stats ? (
-          <>
-            <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6} mb={6}>
-              <Card
-                bg={cardBg}
-                borderWidth="1px"
-                borderColor={borderColor}
-                borderRadius="lg"
-                shadow="sm"
-              >
-                <CardBody>
-                  <Stat>
-                    <StatLabel>Total Requests</StatLabel>
-                    <StatNumber>
-                      {stats.totalRequests.toLocaleString()}
-                    </StatNumber>
-                    <StatHelpText>In selected period</StatHelpText>
-                  </Stat>
-                </CardBody>
+      {isLoading ? renderLoading() : !stats ? renderNoData() : (
+        <>
+          {/* Stats Summary Cards */}
+          <div className="grid gap-4 mb-6 md:grid-cols-2 lg:grid-cols-4">
+             <Card className="overflow-hidden transition-all duration-300 border-0 shadow-md hover:shadow-lg hover-animate">
+                <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-1)/0.2)] to-transparent opacity-50 pointer-events-none" />
+                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                  <CardTitle className="text-sm font-medium">Total Requests</CardTitle>
+                  <BarChart3 className="w-5 h-5 text-[hsl(var(--chart-1))]" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{formatNumber(stats.totalRequests)}</div>
+                  <p className="text-xs text-muted-foreground">Lifetime total</p>
+                </CardContent>
               </Card>
-
-              <Card
-                bg={cardBg}
-                borderWidth="1px"
-                borderColor={borderColor}
-                borderRadius="lg"
-                shadow="sm"
-              >
-                <CardBody>
-                  <Stat>
-                    <StatLabel>Error Rate</StatLabel>
-                    <StatNumber>
-                      {stats.totalRequests > 0 && stats.apiKeyErrors !== undefined
-                        ? ((stats.apiKeyErrors / stats.totalRequests) * 100).toFixed(1)
-                        : '0.0'}%
-                    </StatNumber>
-                    <StatHelpText>{stats.apiKeyErrors ?? 0} API key errors</StatHelpText>
-                  </Stat>
-                </CardBody>
+             <Card className="overflow-hidden transition-all duration-300 border-0 shadow-md hover:shadow-lg hover-animate">
+                <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-2)/0.2)] to-transparent opacity-50 pointer-events-none" />
+                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                  <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
+                  <CheckCircle className="w-5 h-5 text-[hsl(var(--chart-2))]" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{formatPercentage(stats.successRate)}</div>
+                  <p className="text-xs text-muted-foreground">In selected period</p>
+                </CardContent>
               </Card>
-
-              <Card
-                bg={cardBg}
-                borderWidth="1px"
-                borderColor={borderColor}
-                borderRadius="lg"
-                shadow="sm"
-              >
-                <CardBody>
-                  <Stat>
-                    <StatLabel>Avg Response Time</StatLabel>
-                    <StatNumber>{stats.avgResponseTime}ms</StatNumber>
-                    <StatHelpText>Across all requests</StatHelpText>
-                  </Stat>
-                </CardBody>
+             <Card className="overflow-hidden transition-all duration-300 border-0 shadow-md hover:shadow-lg hover-animate">
+                <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-3)/0.2)] to-transparent opacity-50 pointer-events-none" />
+                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                  <CardTitle className="text-sm font-medium">Avg Response Time</CardTitle>
+                  <Clock className="w-5 h-5 text-[hsl(var(--chart-3))]" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.avgResponseTime !== null && stats.avgResponseTime !== undefined ? `${Math.round(stats.avgResponseTime)}ms` : 'N/A'}</div>
+                  <p className="text-xs text-muted-foreground">Across successful requests</p>
+                </CardContent>
               </Card>
-
-              <Card
-                bg={cardBg}
-                borderWidth="1px"
-                borderColor={borderColor}
-                borderRadius="lg"
-                shadow="sm"
-              >
-                <CardBody>
-                  <Stat>
-                    <StatLabel>Active Keys</StatLabel>
-                    <StatNumber>{stats.keyUsageData?.length || 0}</StatNumber>
-                    <StatHelpText>Currently in rotation</StatHelpText>
-                  </Stat>
-                </CardBody>
+             <Card className="overflow-hidden transition-all duration-300 border-0 shadow-md hover:shadow-lg hover-animate">
+                <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-4)/0.2)] to-transparent opacity-50 pointer-events-none" />
+                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                  <CardTitle className="text-sm font-medium">Active Keys</CardTitle>
+                  <Key className="w-5 h-5 text-[hsl(var(--chart-4))]" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{formatNumber(stats.keyUsageData?.length || 0)}</div>
+                  <p className="text-xs text-muted-foreground">Currently in rotation</p>
+                </CardContent>
               </Card>
-            </SimpleGrid>
+          </div>
 
-            <Tabs variant="enclosed" mb={6}>
-              <TabList>
-                <Tab>Request Volume</Tab>
-                <Tab>Key Usage</Tab>
-                <Tab>Model Usage</Tab>
-              </TabList>
+          {/* Tabs for Charts */}
+           <Tabs defaultValue="volume" className="mb-6">
+            {/* Make TabsList full width and use grid for even distribution */}
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="volume">Request Volume</TabsTrigger>
+              <TabsTrigger value="key-usage">Key Usage</TabsTrigger>
+              <TabsTrigger value="model-usage">Model Usage</TabsTrigger>
+              <TabsTrigger value="hourly">Hourly Breakdown</TabsTrigger>
+            </TabsList>
 
-              <TabPanels>
-                <TabPanel p={0} pt={4}>
-                  {/* --- Request Volume Over Time (Line Chart) --- */}
-                  <Card
-                    bg={cardBg}
-                    borderWidth="1px"
-                    borderColor={borderColor}
-                    borderRadius="lg"
-                    shadow="sm"
-                    mb={6} // Add margin bottom
-                  >
-                    <CardHeader>
-                      <Heading size="md">Request Volume Over Time</Heading>
-                      <Text fontSize="sm" color="gray.500">Total requests and API key errors based on selected time range.</Text>
-                    </CardHeader>
-                    <Divider borderColor={borderColor} />
-                    <CardBody>
-                      {stats.requestData && stats.requestData.length > 0 ? (
-                        <Box h="400px">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <LineChart
-                              data={stats.requestData}
-                              margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
-                            >
-                              <CartesianGrid strokeDasharray="3 3" stroke={borderColor} />
-                             {/* XAxis uses 'timestamp' for 24h (UTC ISO string) and 'name' otherwise */}
-                             <XAxis
-                              dataKey={timeRange === '24h' ? 'timestamp' : 'name'}
-                              stroke={useColorModeValue("gray.600", "gray.400")}
-                              tick={{ fill: axisTickColor, fontSize: 12 }}
-                              tickFormatter={(value) => {
-                                // If 24h range, format the ISO timestamp to local HH:00
-                                if (timeRange === '24h') {
-                                  try {
-                                    const date = new Date(value);
-                                    if (!isNaN(date.getTime())) {
-                                      // Format to local time HH:00
-                                      return date.toLocaleTimeString('en-US', {
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                        hour12: false // Use 24-hour format
-                                      });
-                                    }
-                                  } catch (e) { /* ignore format errors */ }
-                                  return value; // Fallback to raw value on error
-                                }
-                                // Otherwise (7d, 30d, 90d), the value is already the formatted name
-                                return value;
-                              }}
-                              // Optional: Adjust interval for 24h if labels overlap
-                              // interval={timeRange === '24h' ? 'preserveStartEnd' : undefined}
+            {/* Request Volume Tab */}
+            <TabsContent value="volume" className="pt-4">
+               <Card className="overflow-hidden border-0 shadow-lg hover-animate">
+                <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-1)/0.05)] via-transparent to-[hsl(var(--chart-2)/0.05)] pointer-events-none" />
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <span>Request Volume Over Time</span>
+                    <div className="w-2 h-2 rounded-full bg-[hsl(var(--chart-1))]"></div>
+                  </CardTitle>
+                  <CardDescription>Requests vs Errors ({timeRange})</CardDescription>
+                </CardHeader>
+                <CardContent className="pb-4">
+                  <div className="">
+                    <ChartContainer config={chartConfig}>
+                        <ResponsiveContainer width="100%" height={150}>
+                          <LineChart
+                            data={formattedRequestData}
+                            margin={{
+                              top: 15,
+                              right: 15,
+                              left: 15,
+                              bottom: 40,
+                            }}
+                          >
+                            <defs>
+                              <linearGradient id="requestsGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.8}/>
+                                <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0.1}/>
+                              </linearGradient>
+                              <linearGradient id="errorsGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="hsl(var(--chart-2))" stopOpacity={0.8}/>
+                                <stop offset="95%" stopColor="hsl(var(--chart-2))" stopOpacity={0.1}/>
+                              </linearGradient>
+                              <linearGradient id="keyErrorsGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="hsl(var(--chart-3))" stopOpacity={0.8}/>
+                                <stop offset="95%" stopColor="hsl(var(--chart-3))" stopOpacity={0.1}/>
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.3} />
+                            <XAxis
+                              dataKey="date"
+                              tickLine={false}
+                              axisLine={false}
+                              tickMargin={8}
+                              angle={-45}
+                              textAnchor="end"
+                              tickFormatter={(value) => value}
+                            />
+                            <YAxis
+                                tickLine={false}
+                                axisLine={false}
+                                tickMargin={8}
+                            />
+                            <ChartTooltip
+                                cursor={false}
+                                content={<ChartTooltipContent />}
+                            />
+                            <ChartLegend 
+                              verticalAlign="bottom"
+                              height={48}
+                              content={<ChartLegendContent />}
+                            />
+                            <Line
+                              dataKey="requests"
+                              type="monotone"
+                              stroke={chartConfig.requests.color}
+                              strokeWidth={3}
+                              dot={{ r: 2, strokeWidth: 2, fill: "white" }}
+                              activeDot={{ r: 6, strokeWidth: 0, fill: "hsl(var(--chart-1))" }}
+                              fill="url(#requestsGradient)"
+                              isAnimationActive={true}
+                              animationDuration={1500}
+                              animationEasing="ease-in-out"
+                            />
+                            <Line
+                              dataKey="errors"
+                              type="monotone"
+                              stroke={chartConfig.errors.color}
+                              strokeWidth={3}
+                              dot={{ r: 2, strokeWidth: 2, fill: "white" }}
+                              activeDot={{ r: 6, strokeWidth: 0, fill: "hsl(var(--chart-2))" }}
+                              fill="url(#errorsGradient)"
+                              isAnimationActive={true}
+                              animationDuration={1500}
+                              animationEasing="ease-in-out"
+                              animationBegin={300}
+                            />
+                            <Line
+                              dataKey="keyErrors"
+                              type="monotone"
+                              stroke={chartConfig.keyErrors.color}
+                              strokeWidth={3}
+                              dot={{ r: 2, strokeWidth: 2, fill: "white" }}
+                              activeDot={{ r: 6, strokeWidth: 0, fill: "hsl(var(--chart-3))" }}
+                              fill="url(#keyErrorsGradient)"
+                              isAnimationActive={true}
+                              animationDuration={1500}
+                              animationEasing="ease-in-out"
+                              animationBegin={600}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                    </ChartContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Key Usage Tab */}
+            <TabsContent value="key-usage" className="pt-4">
+              <Card className="overflow-hidden border-0 shadow-lg hover-animate">
+                <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-5)/0.05)] via-transparent to-[hsl(var(--chart-3)/0.05)] pointer-events-none" />
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <span>API Key Usage Distribution</span>
+                    <div className="w-2 h-2 rounded-full bg-[hsl(var(--chart-5))]"></div>
+                  </CardTitle>
+                  <CardDescription>Distribution of requests across API keys ({timeRange})</CardDescription>
+                </CardHeader>
+                 <CardContent className="pb-4">
+                   <div className="">
+                     <ChartContainer config={chartConfig}>
+                        <ResponsiveContainer width="100%" height={150}>
+                          <PieChart>
+                            <defs>
+                              {keyUsageData.map((entry: PieChartEntry, index: number) => (
+                                <filter key={`filter-${index}`} id={`glow-${index}`} height="200%" width="200%" x="-50%" y="-50%">
+                                  <feGaussianBlur stdDeviation="3" result="blur" />
+                                  <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="glow" />
+                                  <feBlend in="SourceGraphic" in2="glow" mode="normal" />
+                                </filter>
+                              ))}
+                            </defs>
+                             <ChartTooltip
+                                content={<ChartTooltipContent hideLabel />}
                              />
-                             <YAxis stroke={useColorModeValue("gray.600", "gray.400")} tick={{ fill: axisTickColor, fontSize: 12 }}/>
-                             <RechartsTooltip
-                               contentStyle={{
-                                 backgroundColor: cardBg,
-                                 borderColor: borderColor,
-                               }}
-                               labelFormatter={(label) => {
-                                 // Format the label in the tooltip based on range
-                                 if (timeRange === '24h') {
-                                   try {
-                                     const date = new Date(label); // Label is the timestamp ISO string
-                                     if (!isNaN(date.getTime())) {
-                                       // Show full local date and time in tooltip
-                                       return date.toLocaleString('en-US', {
-                                         dateStyle: 'short', // e.g., 4/1/25
-                                         timeStyle: 'short', // e.g., 13:00
-                                         hour12: false,
-                                       });
-                                     }
-                                   } catch (e) {}
-                                   return label; // Fallback
-                                 }
-                                 // For other ranges, label is already formatted name (e.g., "Mon 1", "Apr 1")
-                                 return label;
-                               }}
-                             />
-                              <Legend />
-                              <Line
-                                type="monotone"
-                                dataKey="requests"
-                                stroke={lineColor}
-                                strokeWidth={2}
-                                activeDot={{ r: 6 }}
-                                name="Total Requests"
-                                dot={false}
-                              />
-                              <Line
-                                type="monotone"
-                                dataKey="apiKeyErrors"
-                                stroke={errorColor}
-                                strokeWidth={2}
-                                activeDot={{ r: 6 }}
-                                name="API Key Errors"
-                                dot={false}
-                              />
-                            </LineChart>
-                          </ResponsiveContainer>
-                        </Box>
-                      ) : (
-                        <Flex justify="center" align="center" h="200px">
-                          <Text color="gray.500">
-                            No request data available for this period.
-                          </Text>
-                        </Flex>
-                      )}
-                    </CardBody>
-                  </Card>
-
-                  {/* --- Hourly Request Distribution (Bar Chart - Primarily for 24h view) --- */}
-                  <Card
-                    bg={cardBg}
-                    borderWidth="1px"
-                    borderColor={borderColor}
-                    borderRadius="lg"
-                    shadow="sm"
-                  >
-                    <CardHeader>
-                      <Heading size="md">Hourly Request Distribution (Last 24h)</Heading>
-                       <Text fontSize="sm" color="gray.500">Requests per hour over the last 24 hours.</Text>
-                    </CardHeader>
-                    <Divider borderColor={borderColor} />
-                    <CardBody>
-                      {stats.hourlyData && stats.hourlyData.length > 0 ? (
-                        <Box h="300px">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart
-                              data={stats.hourlyData}
-                              margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
-                            >
-                              <CartesianGrid strokeDasharray="3 3" stroke={borderColor} />
-                              <XAxis
-                                dataKey="hour" // The raw ISO string from backend
-                                stroke={useColorModeValue("gray.600", "gray.400")}
-                                tick={{ fill: axisTickColor, fontSize: 12 }} // Use defined axisTickColor
-                                tickFormatter={(isoString) => {
-                                  // Format the ISO string for display
-                                  try {
-                                    const date = new Date(isoString);
-                                    if (!isNaN(date.getTime())) {
-                                      // Format as "MMM DD HH:00" e.g., "Mar 29 09:00"
-                                      return date.toLocaleDateString('en-US', {
-                                        month: 'short',
-                                        day: 'numeric',
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                        hour12: false, // Use 24-hour format
-                                      });
-                                    }
-                                  } catch (e) { /* ignore */ }
-                                  return isoString; // Fallback
-                                }}
-                                // Optional: Adjust interval if too many labels overlap
-                                // interval="preserveStartEnd" // or a number like 2 or 3
-                              />
-                              <YAxis stroke={useColorModeValue("gray.600", "gray.400")} tick={{ fill: axisTickColor, fontSize: 12 }}/>
-                              <RechartsTooltip
-                                contentStyle={{
-                                  backgroundColor: cardBg,
-                                  borderColor: borderColor,
-                                }}
-                                labelFormatter={(label) => {
-                                   // Format the label in the tooltip as well
-                                   try {
-                                    const date = new Date(label);
-                                     if (!isNaN(date.getTime())) {
-                                       return date.toLocaleString('en-US', {
-                                         dateStyle: 'medium',
-                                         timeStyle: 'short',
-                                         hour12: false,
-                                       });
-                                     }
-                                   } catch(e) {}
-                                   return label;
-                                }}
-                              />
-                              <Legend />
-                              <Bar
-                                dataKey="requests"
-                                fill={lineColor}
-                                name="Requests"
-                              />
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </Box>
-                      ) : (
-                        <Flex justify="center" align="center" h="200px">
-                          <Text color="gray.500">
-                            No hourly data available.
-                          </Text>
-                        </Flex>
-                      )}
-                    </CardBody>
-                  </Card>
-                </TabPanel>
-
-                <TabPanel p={0} pt={4}>
-                  <Card
-                    bg={cardBg}
-                    borderWidth="1px"
-                    borderColor={borderColor}
-                    borderRadius="lg"
-                    shadow="sm"
-                  >
-                    <CardHeader>
-                      <Heading size="md">API Key Usage Distribution</Heading>
-                    </CardHeader>
-                    <Divider borderColor={borderColor} />
-                    <CardBody>
-                      {stats.keyUsageData?.length > 0 ? (
-                        <Box h="400px">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                              <Pie
-                                data={stats.keyUsageData}
+                             <Pie
+                                data={keyUsageData}
+                                dataKey="value"
+                                nameKey="name"
                                 cx="50%"
                                 cy="50%"
-                                labelLine={true}
-                                label={({ name, percent }) =>
-                                  `${name}: ${(percent * 100).toFixed(0)}%`
-                                }
+                                innerRadius={30}
                                 outerRadius={150}
-                                fill="#8884d8"
-                                dataKey="value"
+                                paddingAngle={2}
+                                label={({ name, percent }) =>
+                                  `${name}: ${(percent * 100).toFixed(1)}%`
+                                }
+                                labelLine={true}
+                                isAnimationActive={true}
+                                animationDuration={1500}
+                                animationEasing="ease-in-out"
                               >
-                                {stats.keyUsageData.map(
-                                  (entry: any, index: number) => (
+                                {keyUsageData.map((entry: PieChartEntry, index: number) => (
                                     <Cell
-                                      key={`cell-${index}`}
-                                      fill={COLORS[index % COLORS.length]}
+                                        key={`cell-${index}`}
+                                        fill={entry.fill}
+                                        opacity={entry.opacity}
+                                        filter={`url(#glow-${index})`}
+                                        className="focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                                     />
-                                  )
-                                )}
-                              </Pie>
-                              <RechartsTooltip
-                                formatter={(value: number, name: string, entry: any) => [`${value} requests (${(entry.payload.percent * 100).toFixed(1)}%)`, name]}
-                              />
-                            </PieChart>
-                          </ResponsiveContainer>
-                        </Box>
-                      ) : (
-                        <Flex justify="center" align="center" h="200px">
-                          <Text color="gray.500">
-                            No key usage data available
-                          </Text>
-                        </Flex>
-                      )}
-                    </CardBody>
-                  </Card>
-                </TabPanel>
+                                ))}
+                             </Pie>
+                          </PieChart>
+                        </ResponsiveContainer>
+                     </ChartContainer>
+                   </div>
+                 </CardContent>
+              </Card>
+            </TabsContent>
 
-                <TabPanel p={0} pt={4}>
-                  <Card
-                    bg={cardBg}
-                    borderWidth="1px"
-                    borderColor={borderColor}
-                    borderRadius="lg"
-                    shadow="sm"
-                  >
-                    <CardHeader>
-                      <Heading size="md">Model Usage Distribution</Heading>
-                    </CardHeader>
-                    <Divider borderColor={borderColor} />
-                    <CardBody>
-                      {stats.modelUsageData?.length > 0 ? (
-                        <Box h="400px">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                              <Pie
-                                data={stats.modelUsageData}
-                                cx="50%"
-                                cy="50%"
-                                labelLine={true}
-                                label={({ name, percent }) =>
-                                  `${name}: ${(percent * 100).toFixed(0)}%`
-                                }
-                                outerRadius={150}
-                                fill="#8884d8"
-                                dataKey="value"
-                              >
-                                {stats.modelUsageData.map(
-                                  (entry: any, index: number) => (
-                                    <Cell
-                                      key={`cell-${index}`}
-                                      fill={COLORS[index % COLORS.length]}
-                                    />
-                                  )
-                                )}
-                              </Pie>
-                              <RechartsTooltip
-                                formatter={(value: any) => `${value}%`}
-                              />
-                            </PieChart>
-                          </ResponsiveContainer>
-                        </Box>
-                      ) : (
-                        <Flex justify="center" align="center" h="200px">
-                          <Text color="gray.500">
-                            No model usage data available
-                          </Text>
-                        </Flex>
-                      )}
-                    </CardBody>
-                  </Card>
-                </TabPanel>
-              </TabPanels>
-            </Tabs>
-          </>
-        ) : null}
-      {/* Removed GridItem */}
+            {/* Model Usage Tab */}
+            <TabsContent value="model-usage" className="pt-4">
+              <Card className="overflow-hidden border-0 shadow-lg hover-animate">
+                <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-4)/0.05)] via-transparent to-[hsl(var(--chart-1)/0.05)] pointer-events-none" />
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <span>Model Usage Distribution</span>
+                    <div className="w-2 h-2 rounded-full bg-[hsl(var(--chart-4))]"></div>
+                  </CardTitle>
+                  <CardDescription>Distribution of requests by model ({timeRange})</CardDescription>
+                </CardHeader>
+                <CardContent className="pb-4">
+                  <div className="">
+                    <ChartContainer config={chartConfig}>
+                       <ResponsiveContainer width="100%" height={150}>
+                         <PieChart>
+                           <ChartTooltip
+                              content={<ChartTooltipContent hideLabel />}
+                           />
+                           <Pie
+                              data={modelUsageData}
+                              dataKey="value"
+                              nameKey="name"
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={30}
+                              outerRadius={150}
+                              paddingAngle={2}
+                              label={({ name, percent }) =>
+                                `${name}: ${(percent * 100).toFixed(1)}%`
+                              }
+                              labelLine={true}
+                              isAnimationActive={true}
+                              animationDuration={1500}
+                              animationEasing="ease-in-out"
+                            >
+                              {modelUsageData.map((entry: PieChartEntry, index: number) => (
+                                 <Cell
+                                    key={`cell-${index}`}
+                                    fill={entry.fill}
+                                    className="focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                 />
+                              ))}
+                           </Pie>
+                         </PieChart>
+                       </ResponsiveContainer>
+                    </ChartContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Hourly Breakdown Tab */}
+            <TabsContent value="hourly" className="pt-4">
+              <Card className="overflow-hidden border-0 shadow-lg hover-animate">
+                <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-1)/0.05)] via-transparent to-[hsl(var(--chart-4)/0.05)] pointer-events-none" />
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <span>Hourly Request Volume</span>
+                    <div className="w-2 h-2 rounded-full bg-[hsl(var(--chart-1))]"></div>
+                  </CardTitle>
+                  <CardDescription>Requests by hour (last 24 hours in {userTimeZone})</CardDescription>
+                </CardHeader>
+                <CardContent className="pb-4">
+                  <div className="">
+                    <ChartContainer config={chartConfig}>
+                       <ResponsiveContainer width="100%" height={150}>
+                         <BarChart
+                           data={formattedHourlyData}
+                           margin={{
+                             top: 15,
+                             right: 15,
+                             left: 15,
+                             bottom: 40,
+                           }}
+                         >
+                           <defs>
+                             <linearGradient id="hourlyGradient" x1="0" y1="0" x2="0" y2="1">
+                               <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.8}/>
+                               <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0.1}/>
+                             </linearGradient>
+                           </defs>
+                           <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.3} />
+                           <XAxis
+                             dataKey="hour"
+                             tickLine={false}
+                             axisLine={false}
+                             tickMargin={8}
+                             angle={-45}
+                             textAnchor="end"
+                           />
+                           <YAxis
+                             tickLine={false}
+                             axisLine={false}
+                             tickMargin={8}
+                           />
+                           <ChartTooltip
+                             cursor={{fill: 'rgba(0, 0, 0, 0.05)'}}
+                             content={<ChartTooltipContent />}
+                           />
+                           <Bar
+                             dataKey="requests"
+                             fill="url(#hourlyGradient)"
+                             radius={[4, 4, 0, 0]}
+                             isAnimationActive={true}
+                             animationDuration={1500}
+                             animationEasing="ease-in-out"
+                           />
+                         </BarChart>
+                       </ResponsiveContainer>
+                    </ChartContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </>
+      )}
     </AppLayout>
   );
 }

@@ -1,20 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Button,
-  Divider,
-  Heading,
-  useToast,
-  VStack,
-  // Add any other Chakra UI components you need
-} from '@chakra-ui/react';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { EndpointSetting } from './EndpointSetting';
 import { Settings } from '@/lib/db'; // Import Settings type from db.ts
+import { useToast } from "@/hooks/use-toast";
 
 export const SettingsForm: React.FC = () => {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const toast = useToast();
+  const { toast } = useToast();
 
   // Fetch settings on component mount
   useEffect(() => {
@@ -29,11 +24,9 @@ export const SettingsForm: React.FC = () => {
       } catch (error) {
         console.error('Failed to fetch settings:', error);
         toast({
-          title: 'Error',
-          description: 'Failed to fetch settings',
-          status: 'error',
-          duration: 5000,
-          isClosable: true,
+          title: 'Error fetching settings',
+          description: 'Failed to load settings from the server',
+          variant: 'destructive',
         });
       } finally {
         setIsLoading(false);
@@ -65,18 +58,14 @@ export const SettingsForm: React.FC = () => {
       setSettings(data.settings);
       toast({
         title: 'Settings updated',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
+        description: 'Your changes have been saved',
       });
     } catch (error) {
       console.error('Failed to update settings:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to update settings',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
+        title: 'Error updating settings',
+        description: 'Failed to save your changes',
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
@@ -84,29 +73,32 @@ export const SettingsForm: React.FC = () => {
   };
 
   if (isLoading || !settings) {
-    return <Box>Loading settings...</Box>;
+    return <div className="flex items-center justify-center p-6">Loading settings...</div>;
   }
 
   return (
-    <Box as="form" onSubmit={handleSubmit} width="100%" maxWidth="800px" mx="auto">
-      {/* Your existing form fields would go here */}
-      
-      <Divider my={6} />
-      
-      <Heading size="md" mb={4}>API Endpoint Configuration</Heading>
-      <EndpointSetting 
-        value={settings?.endpoint || ''}
-        onChange={(value) => setSettings(prev => prev ? {...prev, endpoint: value} : null)}
-      />
-      
-      <Button 
-        mt={6} 
-        colorScheme="blue" 
-        type="submit" 
-        isLoading={isLoading}
-      >
-        Save All Settings
-      </Button>
-    </Box>
+    <div className="w-full max-w-3xl mx-auto">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Your existing form fields would go here */}
+        
+        <Separator className="my-6" />
+        
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium">API Endpoint Configuration</h3>
+          <EndpointSetting 
+            value={settings?.endpoint || ''}
+            onChange={(value) => setSettings(prev => prev ? {...prev, endpoint: value} : null)}
+          />
+        </div>
+        
+        <Button 
+          type="submit" 
+          disabled={isLoading}
+          className="w-full sm:w-auto"
+        >
+          {isLoading ? "Saving..." : "Save All Settings"}
+        </Button>
+      </form>
+    </div>
   );
 };

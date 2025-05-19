@@ -2,6 +2,8 @@
 
 import { createContext } from 'react';
 
+// This context is kept for backward compatibility
+// New components should use next-themes directly
 type ThemeContextType = {
   colorMode: 'light' | 'dark';
   toggleColorMode: () => void;

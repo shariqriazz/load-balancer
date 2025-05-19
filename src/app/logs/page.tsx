@@ -32,6 +32,36 @@ import {
   SimpleGrid, // Or Flex if preferred
 } from "@chakra-ui/react";
 import AppLayout from "@/components/layout/AppLayout";
+import { Input as UiInput } from "@/components/ui/input";
+import { Button as UiButton } from "@/components/ui/button";
+import {
+  Select as UiSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Tabs as UiTabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/card";
+import { Alert as UiAlert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Loader2, AlertCircle, RefreshCw, BarChart3, CheckCircle, Clock, Key } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type LogType = "requests" | "errors" | "keys";
 
@@ -44,10 +74,14 @@ const LogsPage = () => {
   const [limit, setLimit] = useState<number>(100);
   const [search, setSearch] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>(""); // Debounced search term
+  const [timeRange, setTimeRange] = useState("24h");
+  const [summaryStatsData, setSummaryStatsData] = useState<any>(null);
+  const [summaryStatsLoading, setSummaryStatsLoading] = useState<boolean>(true);
+  const [summaryStatsError, setSummaryStatsError] = useState<string | null>(null);
   const toast = useToast();
   const [appErrorStats, setAppErrorStats] = useState<{ totalErrors: number, apiKeyErrors: number } | null>(null);
-  const [statsLoading, setStatsLoading] = useState<boolean>(true);
-  const [statsError, setStatsError] = useState<string | null>(null);
+  const [appErrorStatsLoading, setAppErrorStatsLoading] = useState<boolean>(true);
+  const [appErrorStatsError, setAppErrorStatsError] = useState<string | null>(null);
   const [isClient, setIsClient] = useState<boolean>(false); // State to track client-side mount
 
   // Define colors for light/dark mode
@@ -56,6 +90,13 @@ const LogsPage = () => {
   const codeColor = useColorModeValue("gray.800", "gray.100");
   const cardBg = useColorModeValue("white", "gray.800"); // For the new card
   const borderColor = useColorModeValue("gray.200", "gray.700"); // For the new card
+
+  const [summaryStats, setSummaryStats] = useState({
+    totalRequests: 0,
+    totalRequestsToday: 0,
+    successRate: 0,
+    activeKeys: 0
+  });
 
   const fetchLogs = useCallback(async () => {
     setLoading(true);
@@ -81,14 +122,13 @@ const LogsPage = () => {
       setLogs(data.logs || []);
     } catch (err: any) {
       console.error("Failed to fetch logs:", err);
-      setError(err.message || "Failed to fetch logs.");
+      const errorMessage = err.message || "Failed to fetch logs.";
+      setError(errorMessage);
       setLogs([]);
       toast({
         title: "Error fetching logs",
-        description: err.message || "An unexpected error occurred.",
-        status: "error",
-        duration: 5000,
-        isClosable: true,
+        description: errorMessage,
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -97,20 +137,64 @@ const LogsPage = () => {
 
   // Fetch initial logs for the default tab ('keys')
   useEffect(() => {
-    fetchLogs();
-  }, []); // Run only once on mount
+    if (isClient && logType === "keys") {
+      fetchLogs();
+    }
+  }, [isClient, logType, fetchLogs]);
 
-  // Remove the useEffect that depended on [fetchLogs]
-  // useEffect(() => {
-  //   fetchLogs();
-  // }, [fetchLogs]);
+  // Formatters
+  const formatPercentage = (value: number | undefined | null): string => {
+    if (value === undefined || value === null || isNaN(value)) {
+        return "N/A";
+    }
+    return `${value.toFixed(1)}%`;
+  };
 
-  // Fetch aggregate stats for error summary
-  const fetchAppErrorStats = useCallback(async () => {
-    setStatsLoading(true);
-    setStatsError(null);
+  const formatNumber = (value: number | undefined | null): string => {
+    if (value === undefined || value === null || isNaN(value)) {
+        return "N/A";
+    }
+    return value.toLocaleString();
+  }
+
+  // Fetch data for the summary cards
+  const fetchSummaryStats = useCallback(async () => {
+    setSummaryStatsLoading(true);
+    setSummaryStatsError(null);
     try {
-      const response = await fetch(`/api/stats?timeRange=24h`); // Fetch 24h stats
+      const response = await fetch(`/api/stats?timeRange=${timeRange}`);
+      if (!response.ok) {
+        const errorData = await response.text();
+        throw new Error(`Error fetching summary statistics (${response.status}): ${errorData || response.statusText}`);
+      }
+      const data = await response.json();
+      setSummaryStatsData(data);
+      setSummaryStats({
+        totalRequests: data?.totalRequests ?? 0,
+        totalRequestsToday: data?.totalRequestsToday ?? 0,
+        successRate: data?.successRate ?? 0,
+        activeKeys: data?.activeKeys ?? 0,
+      });
+    } catch (err: any) {
+      const errorMessage = err.message || "Failed to fetch summary statistics";
+      setSummaryStatsError(errorMessage);
+      console.error("Error fetching summary stats:", err);
+      toast({
+        title: "Error Fetching Summary Stats",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setSummaryStatsLoading(false);
+    }
+  }, [timeRange, toast]);
+
+  // Fetch app error stats
+  const fetchAppErrorStats = useCallback(async () => {
+    setAppErrorStatsLoading(true);
+    setAppErrorStatsError(null);
+    try {
+      const response = await fetch(`/api/stats?timeRange=24h`);
       if (!response.ok) {
         throw new Error(`Error fetching stats: ${response.statusText}`);
       }
@@ -121,28 +205,37 @@ const LogsPage = () => {
       });
     } catch (err: any) {
       console.error("Failed to fetch app error stats:", err);
-      setStatsError(err.message || "Failed to fetch error summary.");
+      const errorMessage = err.message || "Failed to fetch error summary.";
+      setAppErrorStatsError(errorMessage);
       toast({
         title: "Error fetching error summary",
-        description: err.message || "An unexpected error occurred.",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
+        description: errorMessage,
+        variant: "destructive",
       });
     } finally {
-      setStatsLoading(false);
+      setAppErrorStatsLoading(false);
     }
   }, [toast]);
 
+  // Fetch summary stats when timeRange changes or on client mount
   useEffect(() => {
-    fetchAppErrorStats();
-  }, [fetchAppErrorStats]);
+    if (isClient) {
+      fetchSummaryStats();
+    }
+  }, [isClient, timeRange, fetchSummaryStats]);
+
+  // Fetch app error stats on client mount
+  useEffect(() => {
+    if (isClient) {
+      fetchAppErrorStats();
+    }
+  }, [isClient, fetchAppErrorStats]);
 
   // Basic debounce for search input
   useEffect(() => {
     const handler = setTimeout(() => {
       setSearchTerm(search);
-    }, 500); // Adjust delay as needed
+    }, 500);
 
     return () => {
       clearTimeout(handler);
@@ -154,23 +247,24 @@ const LogsPage = () => {
     setIsClient(true);
   }, []);
 
-  const handleTabChange = (index: number) => {
-    const types: LogType[] = ["requests", "errors", "keys"];
-    const newType = types[index];
-    setLogType(newType);
-    // Only fetch automatically for errors and keys tabs
-    if (newType === "errors" || newType === "keys") {
+  // Fetch logs when searchTerm changes or limit changes
+  useEffect(() => {
+    if (isClient && (logType !== 'requests' || requestLogsTriggered)) {
       fetchLogs();
     }
-    // If switching to requests, reset the trigger *if* you want it to require button press every time
-    // if (newType === 'requests') {
-    //   setRequestLogsTriggered(false); // Optional: uncomment to force button press on each visit
-    // }
+  }, [searchTerm, limit, isClient, logType, requestLogsTriggered, fetchLogs]);
+
+  const handleTabChange = (value: string) => {
+    const newType = value as LogType;
+    setLogType(newType);
   };
 
   const handleSearch = () => {
-    setSearchTerm(search); // Trigger search immediately on button click
-    // fetchLogs(); // fetchLogs is already triggered by searchTerm change via useEffect
+    setSearchTerm(search);
+  };
+
+  const handleLoadRequests = () => {
+    setRequestLogsTriggered(true);
   };
 
   // Calculate other application errors
@@ -179,195 +273,238 @@ const LogsPage = () => {
     return Math.max(0, appErrorStats.totalErrors - appErrorStats.apiKeyErrors);
   }, [appErrorStats]);
 
+  const renderLogs = (currentLogType: LogType) => {
+    if (loading) {
+      return <div className="flex items-center justify-center h-32"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+    }
+    if (error) {
+      return (
+        <UiAlert variant="destructive">
+          <AlertCircle className="w-4 h-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </UiAlert>
+      );
+    }
+    return (
+      <div className="bg-muted/50 p-4 rounded-md max-h-[70vh] overflow-y-auto border">
+        {logs.length > 0 ? (
+          logs.map((log, index) => (
+            <pre
+              key={`${currentLogType}-${index}`}
+              className="block p-2 mb-2 overflow-x-auto text-sm whitespace-pre-wrap border rounded-sm bg-background text-foreground"
+            >
+              {JSON.stringify(log, null, 2)}
+            </pre>
+          ))
+        ) : (
+          <p className="py-4 text-center text-muted-foreground">No {currentLogType} logs found matching criteria.</p>
+        )}
+      </div>
+    );
+  };
+
   return (
     <AppLayout>
-        <VStack align="stretch" spacing={6}> {/* Increased spacing */}
-          <Heading size="lg">Application Logs</Heading>
+      <TooltipProvider>
+        <div className="flex flex-col space-y-6">
+          {/* Header */}
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight">Application Logs</h1>
+              <p className="text-sm text-muted-foreground">View and search system logs</p>
+            </div>
 
-          {/* Add Error Summary Card */}
-          <Card bg={cardBg} borderWidth="1px" borderColor={borderColor} borderRadius="lg" shadow="sm">
-            <CardBody>
-              <Stat>
-                <StatLabel>Other Application Errors (Last 24h)</StatLabel>
-                <StatNumber>
-                  {!isClient ? 0 : statsLoading ? <Spinner size="sm" /> : statsError ? 'Error' : otherApplicationErrors}
-                </StatNumber>
-                <StatHelpText>Total errors excluding API key failures</StatHelpText>
-              </Stat>
-            </CardBody>
-          </Card>
+            <div className="flex items-center gap-2">
+              <UiSelect value={timeRange} onValueChange={setTimeRange}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Select time range" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="24h">Last 24 Hours</SelectItem>
+                  <SelectItem value="7d">Last 7 Days</SelectItem>
+                  <SelectItem value="30d">Last 30 Days</SelectItem>
+                  <SelectItem value="90d">Last 90 Days</SelectItem>
+                </SelectContent>
+              </UiSelect>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <UiButton variant="outline" size="icon" onClick={() => { fetchSummaryStats(); fetchAppErrorStats(); }} disabled={summaryStatsLoading || appErrorStatsLoading}>
+                    <RefreshCw className={cn("h-4 w-4", (summaryStatsLoading || appErrorStatsLoading) && "animate-spin")} />
+                    <span className="sr-only">Refresh logs and stats</span>
+                  </UiButton>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Refresh Stats</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
 
-          <HStack spacing={4}>
-            <Input
-              placeholder="Search logs..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-            />
-            <Select
-              value={limit}
-              onChange={(e) => setLimit(Number(e.target.value))}
-              width="150px"
-            >
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-              <option value={200}>200</option>
-              <option value={500}>500</option>
-            </Select>
-            <Button onClick={handleSearch} isLoading={loading}>
-              Search
-            </Button>
-            {/* Add Date Pickers here if needed */}
-          </HStack>
+          {/* Display summary stats error if exists */}
+          {summaryStatsError && (
+            <UiAlert variant="destructive">
+              <AlertCircle className="w-4 h-4" />
+              <AlertTitle>Error Fetching Summary Stats</AlertTitle>
+              <AlertDescription>{summaryStatsError}</AlertDescription>
+            </UiAlert>
+          )}
 
-          <Tabs
-            onChange={handleTabChange}
-            variant="soft-rounded"
-            colorScheme="blue"
-            defaultIndex={2} // Set default tab to 'Keys' (index 2)
-          >
-            <TabList>
-              <Tab>Requests</Tab>
-              <Tab>Errors</Tab>
-              <Tab>Keys</Tab>
-            </TabList>
-            <TabPanels>
-              <TabPanel>
-                {/* Request Logs Tab Content - Only render conditional UI on client */}
-                {!isClient ? (
-                  <Spinner /> // Render a simple spinner during SSR/initial hydration
-                ) : !requestLogsTriggered ? (
-                  <VStack spacing={4} align="center" justify="center" h="200px">
-                    <Text>Request logs can be large.</Text>
-                    <Button
-                      onClick={() => {
-                        setRequestLogsTriggered(true);
-                        fetchLogs(); // Fetch logs when button is clicked
-                      }}
-                      isLoading={loading && logType === 'requests'} // Show loading on button if fetching requests
-                      colorScheme="blue"
-                    >
-                      Load Request Logs
-                    </Button>
-                  </VStack>
-                ) : (
-                  <>
-                    {/* Existing loading/error/log display logic */}
-                    {loading && <Spinner />}
-                    {error && (
-                      <Alert status="error">
-                        <AlertIcon />
-                        {error}
-                      </Alert>
-                    )}
-                    {!loading && !error && (
-                      <Box
-                        bg={logBoxBg}
-                        p={4}
-                        borderRadius="md"
-                        maxHeight="70vh"
-                        overflowY="auto"
+          {/* Wrap content in client-only rendering check */}
+          {!isClient ? (
+            <div className="space-y-6">
+              {/* Placeholder for summary cards */}
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <Card className="hover-animate"><CardContent className="pt-6 h-[108px] flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></CardContent></Card>
+                <Card className="hover-animate"><CardContent className="pt-6 h-[108px] flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></CardContent></Card>
+                <Card className="hover-animate"><CardContent className="pt-6 h-[108px] flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></CardContent></Card>
+                <Card className="hover-animate"><CardContent className="pt-6 h-[108px] flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></CardContent></Card>
+              </div>
+              {/* Placeholder for App Error Card */}
+              <Card className="h-[100px] hover-animate"><CardHeader><CardTitle>Other Application Errors</CardTitle></CardHeader><CardContent><Loader2 className="w-6 h-6 animate-spin text-primary" /></CardContent></Card>
+              {/* Placeholder for Filters */}
+              <div className="h-10"></div>
+              {/* Placeholder for Tabs */}
+              <div className="flex items-center justify-center h-64 border rounded-md"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+            </div>
+          ) : (
+            <>
+              {/* Stats Summary Cards */}
+              {summaryStatsLoading ? (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  <Card className="hover-animate"><CardContent className="pt-6"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></CardContent></Card>
+                  <Card className="hover-animate"><CardContent className="pt-6"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></CardContent></Card>
+                  <Card className="hover-animate"><CardContent className="pt-6"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></CardContent></Card>
+                  <Card className="hover-animate"><CardContent className="pt-6"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></CardContent></Card>
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  <Card className="overflow-hidden transition-all duration-300 border-0 shadow-md hover:shadow-lg hover-animate">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-1)/0.2)] to-transparent opacity-50 pointer-events-none" />
+                    <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                      <CardTitle className="text-sm font-medium">Total Requests</CardTitle>
+                      <BarChart3 className="w-5 h-5 text-[hsl(var(--chart-1))]" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{formatNumber(summaryStats.totalRequests)}</div>
+                      <p className="text-xs text-muted-foreground">Lifetime total</p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="overflow-hidden transition-all duration-300 border-0 shadow-md hover:shadow-lg hover-animate">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-2)/0.2)] to-transparent opacity-50 pointer-events-none" />
+                    <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                      <CardTitle className="text-sm font-medium">Today's Requests</CardTitle>
+                      <BarChart3 className="w-5 h-5 text-[hsl(var(--chart-2))]" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{formatNumber(summaryStats.totalRequestsToday)}</div>
+                      <p className="text-xs text-muted-foreground">Since midnight</p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="overflow-hidden transition-all duration-300 border-0 shadow-md hover:shadow-lg hover-animate">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-3)/0.2)] to-transparent opacity-50 pointer-events-none" />
+                    <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                      <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
+                      <CheckCircle className="w-5 h-5 text-[hsl(var(--chart-3))]" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{formatPercentage(summaryStats.successRate)}</div>
+                      <p className="text-xs text-muted-foreground">In selected period</p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="overflow-hidden transition-all duration-300 border-0 shadow-md hover:shadow-lg hover-animate">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-4)/0.2)] to-transparent opacity-50 pointer-events-none" />
+                    <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                      <CardTitle className="text-sm font-medium">Active Keys</CardTitle>
+                      <Key className="w-5 h-5 text-[hsl(var(--chart-4))]" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{formatNumber(summaryStats.activeKeys)}</div>
+                      <p className="text-xs text-muted-foreground">Currently in rotation</p>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* App Error Summary Card */}
+              <Card className="border-0 shadow-lg hover-animate">
+                <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-red-500/5 via-transparent to-orange-500/5" />
+                <CardHeader>
+                  <CardTitle className="text-lg">Other Application Errors (Last 24h)</CardTitle>
+                  <CardDescription>Total errors excluding API key failures</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">
+                    {appErrorStatsLoading ? <Loader2 className="w-6 h-6 animate-spin text-primary" /> : appErrorStatsError ? 'Error' : otherApplicationErrors}
+                  </div>
+                  {appErrorStatsError && <p className="text-sm text-destructive">{appErrorStatsError}</p>}
+                </CardContent>
+              </Card>
+
+              {/* Filters */}
+              <div className="flex flex-col pt-4 space-y-2 sm:flex-row sm:space-y-0 sm:space-x-4">
+                <UiInput
+                  placeholder="Search logs..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                  className="flex-grow"
+                />
+                <UiSelect value={limit.toString()} onValueChange={(value) => setLimit(Number(value))}>
+                  <SelectTrigger className="w-full sm:w-[150px]">
+                    <SelectValue placeholder="Limit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                    <SelectItem value="200">200</SelectItem>
+                    <SelectItem value="500">500</SelectItem>
+                  </SelectContent>
+                </UiSelect>
+                <UiButton onClick={handleSearch} disabled={loading}>
+                  {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Search
+                </UiButton>
+              </div>
+
+              {/* Tabs */}
+              <UiTabs defaultValue="keys" onValueChange={handleTabChange} className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="requests">Requests</TabsTrigger>
+                  <TabsTrigger value="errors">Errors</TabsTrigger>
+                  <TabsTrigger value="keys">Keys</TabsTrigger>
+                </TabsList>
+                <TabsContent value="requests" className="mt-4">
+                  {/* Request Logs Tab Content */}
+                  {!requestLogsTriggered ? (
+                    <div className="flex flex-col items-center justify-center h-48 space-y-4 border rounded-md">
+                      <p className="text-muted-foreground">Request logs can be large.</p>
+                      <UiButton
+                        onClick={handleLoadRequests}
+                        disabled={loading && logType === 'requests'}
                       >
-                        {logs.length > 0 ? (
-                          logs.map((log, index) => (
-                            <Code
-                              display="block"
-                              whiteSpace="pre-wrap"
-                              key={index}
-                              p={2}
-                              mb={2}
-                              borderRadius="sm"
-                              bg={codeBg}
-                              color={codeColor}
-                            >
-                              {JSON.stringify(log, null, 2)}
-                            </Code>
-                          ))
-                        ) : (
-                          <Text>No request logs found matching criteria.</Text>
-                        )}
-                      </Box>
-                    )}
-                  </>
-                )}
-              </TabPanel>
-              <TabPanel>
-                {loading && <Spinner />}
-                {error && (
-                  <Alert status="error">
-                    <AlertIcon />
-                    {error}
-                  </Alert>
-                )}
-                {!loading && !error && (
-                  <Box
-                    bg={logBoxBg}
-                    p={4}
-                    borderRadius="md"
-                    maxHeight="70vh"
-                    overflowY="auto"
-                  >
-                    {logs.length > 0 ? (
-                      logs.map((log, index) => (
-                        <Code
-                          display="block"
-                          whiteSpace="pre-wrap"
-                          key={index}
-                          p={2}
-                          mb={2}
-                          borderRadius="sm"
-                          bg={codeBg}
-                          color={codeColor}
-                        >
-                          {JSON.stringify(log, null, 2)}
-                        </Code>
-                      ))
-                    ) : (
-                      <Text>No error logs found matching criteria.</Text>
-                    )}
-                  </Box>
-                )}
-              </TabPanel>
-              <TabPanel>
-                {loading && <Spinner />}
-                {error && (
-                  <Alert status="error">
-                    <AlertIcon />
-                    {error}
-                  </Alert>
-                )}
-                {!loading && !error && (
-                  <Box
-                    bg={logBoxBg}
-                    p={4}
-                    borderRadius="md"
-                    maxHeight="70vh"
-                    overflowY="auto"
-                  >
-                    {logs.length > 0 ? (
-                      logs.map((log, index) => (
-                        <Code
-                          display="block"
-                          whiteSpace="pre-wrap"
-                          key={index}
-                          p={2}
-                          mb={2}
-                          borderRadius="sm"
-                          bg={codeBg}
-                          color={codeColor}
-                        >
-                          {JSON.stringify(log, null, 2)}
-                        </Code>
-                      ))
-                    ) : (
-                      <Text>No key logs found matching criteria.</Text>
-                    )}
-                  </Box>
-                )}
-              </TabPanel>
-            </TabPanels>
-          </Tabs>
-        </VStack>
+                        {loading && logType === 'requests' && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                        Load Request Logs
+                      </UiButton>
+                    </div>
+                  ) : (
+                    renderLogs("requests")
+                  )}
+                </TabsContent>
+                <TabsContent value="errors" className="mt-4">
+                  {renderLogs("errors")}
+                </TabsContent>
+                <TabsContent value="keys" className="mt-4">
+                  {renderLogs("keys")}
+                </TabsContent>
+              </UiTabs>
+            </>
+          )}
+        </div>
+      </TooltipProvider>
     </AppLayout>
   );
 };

@@ -1,132 +1,100 @@
 'use client';
 
-import { usePathname, useRouter } from 'next/navigation'; // Import useRouter
 import Link from 'next/link';
-import { 
-  Box, 
-  VStack, 
-  Heading, 
-  Text, 
-  Flex, 
-  Icon, 
-  useColorModeValue,
-  Button,
-  Divider,
+import { usePathname, useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useTheme } from 'next-themes';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import {
   Tooltip,
-  IconButton,
-  useToast // Import useToast
-} from '@chakra-ui/react';
-import { 
-  FiHome, 
-  FiKey, 
-  FiSettings, 
-  FiFileText, 
-  FiBarChart2, 
-  FiCode,
-  FiMoon,
-  FiSun,
-  FiChevronLeft,
-  FiChevronRight,
-  FiLogOut // Import FiLogOut
-} from 'react-icons/fi';
-import { useContext, useState, useEffect } from 'react'; // Add useEffect
-import { ThemeContext } from '@/contexts/ThemeContext';
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { Separator } from '@/components/ui/separator';
+import { useToast } from '@/hooks/use-toast';
+import {
+  Home,
+  Key,
+  Settings,
+  FileText,
+  BarChart2,
+  Moon,
+  Sun,
+  ChevronLeft,
+  ChevronRight,
+  LogOut,
+  type LucideIcon,
+} from 'lucide-react';
 
 interface NavItemProps {
-  icon: any;
+  icon: LucideIcon;
   href: string;
-  children: React.ReactNode;
+  label: string;
   isActive?: boolean;
   isCollapsed?: boolean;
 }
 
-interface SidebarProps {
-  onResize?: (width: string) => void;
-}
-
-const NavItem = ({ icon, href, children, isActive, isCollapsed }: NavItemProps) => {
-  const activeBg = useColorModeValue('blue.50', 'blue.900');
-  const hoverBg = useColorModeValue('gray.100', 'gray.700');
-  const activeColor = useColorModeValue('blue.600', 'blue.200');
-
-  return (
-    <Link href={href} passHref style={{ textDecoration: 'none', width: '100%' }}>
-      <Tooltip label={isCollapsed ? children : ''} placement="right" isDisabled={!isCollapsed}>
-        <Flex
-          align="center"
-          p="3"
-          mx={isCollapsed ? "0" : "2"}
-          justifyContent={isCollapsed ? "center" : "flex-start"}
-          borderRadius="md"
-          role="group"
-          cursor="pointer"
-          bg={isActive ? activeBg : 'transparent'}
-          color={isActive ? activeColor : undefined}
-          _hover={{
-            bg: isActive ? activeBg : hoverBg,
-          }}
-        >
-          <Icon
-            mr={isCollapsed ? "0" : "3"}
-            fontSize={isCollapsed ? "20" : "16"}
-            as={icon}
-          />
-          {!isCollapsed && (
-            <Text fontSize="sm" fontWeight={isActive ? "bold" : "medium"}>
-              {children}
-            </Text>
-          )}
-        </Flex>
-      </Tooltip>
-    </Link>
+const NavItem = ({ icon: Icon, href, label, isActive, isCollapsed }: NavItemProps) => {
+  const buttonContent = (
+    <Button
+      variant={isActive ? 'secondary' : 'ghost'}
+      className={cn('w-full justify-start', isCollapsed && 'justify-center px-2')}
+      asChild
+    >
+      <Link href={href}>
+        <Icon className={cn('h-4 w-4', !isCollapsed && 'mr-2')} />
+        {!isCollapsed && <span className="text-sm">{label}</span>}
+      </Link>
+    </Button>
   );
+
+  if (isCollapsed) {
+    return (
+      <TooltipProvider delayDuration={0}>
+        <Tooltip>
+          <TooltipTrigger asChild>{buttonContent}</TooltipTrigger>
+          <TooltipContent side="right">{label}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  return buttonContent;
 };
 
-export default function Sidebar({ onResize }: SidebarProps) {
-  const pathname = usePathname();
-  // Removed duplicate pathname declaration
-  const router = useRouter(); // Add router
-  const toast = useToast(); // Add toast
-  const { colorMode, toggleColorMode } = useContext(ThemeContext);
-  // Initialize state from localStorage or default to false
-  // Initialize consistently on server and client initial render
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  // Remove isClient state - no longer needed with this pattern
-  // const [isClient, setIsClient] = useState(false);
-  
-  const bg = useColorModeValue('white', 'gray.800');
-  const borderColor = useColorModeValue('gray.200', 'gray.700');
-
-  // Effect to update sidebar width on initial load based on persisted state
-  useEffect(() => {
-    if (onResize) {
-      onResize(isCollapsed ? "60px" : "250px");
-    }
-    // We only want this effect to run based on the initial state, not on every toggle
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dependency array ensures it runs only once on mount
-
-  // After mount, read localStorage and update state if needed
-  useEffect(() => {
+// Helper function to safely get initial state from localStorage only on client
+const getInitialCollapsedState = () => {
+  if (typeof window === 'undefined') {
+    return false; // Default for SSR
+  }
+  try {
     const savedState = localStorage.getItem('sidebarCollapsed');
-    const initialValue = savedState ? JSON.parse(savedState) : false;
-    if (initialValue !== isCollapsed) { // Only update if different from initial
-       setIsCollapsed(initialValue);
-       // Also update layout if needed based on loaded state
-       if (onResize) {
-         onResize(initialValue ? "60px" : "250px");
-       }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run only once after mount
+    return savedState ? JSON.parse(savedState) : false;
+  } catch (e) {
+    console.error("Failed to parse sidebarCollapsed state from localStorage for initial state", e);
+    return false; // Fallback on error
+  }
+};
+
+export default function Sidebar() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const { toast } = useToast();
+  const { theme, setTheme } = useTheme();
+  // Initialize state directly using the helper function
+  const [isCollapsed, setIsCollapsed] = useState(getInitialCollapsedState());
+  const [isMounted, setIsMounted] = useState(false); // For theme/icon hydration
+
+  // Effect to set mounted state
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const toggleCollapse = () => {
     const newCollapsedState = !isCollapsed;
     setIsCollapsed(newCollapsedState);
-    if (onResize) {
-      onResize(newCollapsedState ? "60px" : "250px");
-    }
-    // Save the new state to localStorage
     if (typeof window !== 'undefined') {
       localStorage.setItem('sidebarCollapsed', JSON.stringify(newCollapsedState));
     }
@@ -139,11 +107,8 @@ export default function Sidebar({ onResize }: SidebarProps) {
         toast({
           title: 'Logged Out',
           description: 'You have been successfully logged out.',
-          status: 'success',
-          duration: 3000,
-          isClosable: true,
+          variant: 'default',
         });
-        // Use replace to prevent going back to the logged-in state
         router.replace('/login');
       } else {
         throw new Error('Logout failed');
@@ -152,134 +117,114 @@ export default function Sidebar({ onResize }: SidebarProps) {
       toast({
         title: 'Error',
         description: 'Failed to log out. Please try again.',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
+        variant: 'destructive',
       });
       console.error('Logout error:', error);
     }
   };
 
+  const sidebarWidth = isCollapsed ? 'w-[60px]' : 'w-[250px]';
+  const currentTheme = theme === 'system' ? 'light' : theme; // Assume light for system for icon logic
+
   return (
-    <Box
-      h="100%"
-      w={isCollapsed ? "60px" : "250px"} // Use state directly now
-      bg={bg}
-      borderRight="1px"
-      borderColor={borderColor}
-      py={4}
-      transition="width 0.2s ease"
-      position="relative"
+    <div
+      className={cn(
+        'relative flex h-full flex-col border-r bg-background transition-[width] duration-200 ease-in-out',
+        sidebarWidth
+      )}
     >
-      {/* Render button unconditionally */}
-      <IconButton
-        aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"} // Use state directly
-        icon={isCollapsed ? <FiChevronRight /> : <FiChevronLeft />} // Use state directly
-        size="sm"
-        variant="ghost"
-        position="absolute"
-        right="-12px"
-        top="10px"
-        borderRadius="50%"
-        bg={bg}
-        borderWidth="1px"
-        borderColor={borderColor}
-        zIndex="1"
+      {/* Collapse Toggle Button */}
+      <Button
+        variant="outline"
+        size="icon"
+        className="absolute z-10 w-8 h-8 rounded-full -right-4 top-2"
         onClick={toggleCollapse}
-      />
+        aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      >
+        {/* Only render icon after mount to prevent hydration mismatch */}
+        {isMounted && (isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />)}
+      </Button>
 
-      <Flex direction="column" h="full" justify="space-between">
-        <Box>
-          <Flex px={4} mb={6} align="center" justify={isCollapsed ? "center" : "flex-start"}>
-            {!isCollapsed ? (
-              <Heading size="md" fontWeight="bold">Load Balancer</Heading>
-            ) : (
-              <Heading size="md" fontWeight="bold">G</Heading>
-            )}
-          </Flex>
+      <div className="flex flex-col justify-between overflow-y-auto grow">
+        {/* Top Section: Logo & Nav */}
+        <div className="px-3 py-4">
+          <div className={cn('mb-6 flex items-center px-2', isCollapsed ? 'justify-center' : 'justify-start')}>
+            <h2 className="text-xl font-bold tracking-tight">
+              {isCollapsed ? 'L' : 'Load Balancer'}
+            </h2>
+          </div>
 
-          <VStack align="stretch" spacing={1}>
-            <NavItem 
-              icon={FiHome} 
-              href="/dashboard" 
+          <nav className="flex flex-col space-y-1">
+            <NavItem
+              icon={Home}
+              href="/dashboard"
+              label="Dashboard"
               isActive={pathname === '/dashboard'}
               isCollapsed={isCollapsed}
-            >
-              Dashboard
-            </NavItem>
-            
-            <NavItem 
-              icon={FiKey} 
-              href="/keys" 
-              isActive={pathname === '/keys'}
+            />
+            <NavItem
+              icon={Key}
+              href="/keys"
+              label="API Keys"
+              isActive={pathname === '/keys' || pathname.startsWith('/keys/')}
               isCollapsed={isCollapsed}
-            >
-              API Keys
-            </NavItem>
-            
-            <NavItem 
-              icon={FiFileText} 
-              href="/logs" 
+            />
+            <NavItem
+              icon={FileText}
+              href="/logs"
+              label="Logs"
               isActive={pathname === '/logs'}
               isCollapsed={isCollapsed}
-            >
-              Logs
-            </NavItem>
-            
-            <NavItem 
-              icon={FiBarChart2} 
-              href="/stats" 
+            />
+            <NavItem
+              icon={BarChart2}
+              href="/stats"
+              label="Stats"
               isActive={pathname === '/stats'}
               isCollapsed={isCollapsed}
-            >
-              Statistics
-            </NavItem>
-            
-
-            <NavItem 
-              icon={FiSettings} 
-              href="/settings" 
+            />
+            <NavItem
+              icon={Settings}
+              href="/settings"
+              label="Settings"
               isActive={pathname === '/settings'}
               isCollapsed={isCollapsed}
-            >
-              Settings
-            </NavItem>
-          </VStack>
-        </Box>
+            />
+          </nav>
+        </div>
 
-        {/* Group bottom controls in a VStack for consistent spacing */}
-        <VStack spacing={2} align="stretch" px={4} mb={4}>
-          <Divider />
-          {/* Theme Toggle Button */}
-          <Tooltip label={isCollapsed ? (colorMode === 'light' ? "Dark Mode" : "Light Mode") : ""} placement="right" isDisabled={!isCollapsed}>
+        {/* Bottom Section: Theme & Logout */}
+        <div className="px-3 py-4">
+          <Separator className="my-4" />
+          <div className="flex flex-col space-y-1">
             <Button
-              leftIcon={colorMode === 'light' ? <FiMoon /> : <FiSun />}
-              onClick={toggleColorMode}
               variant="ghost"
-              size="sm"
-              width="full"
-              justifyContent={isCollapsed ? "center" : "flex-start"}
+              className={cn('w-full justify-start', isCollapsed && 'justify-center px-2')}
+              onClick={() => setTheme(currentTheme === 'dark' ? 'light' : 'dark')}
             >
-              {!isCollapsed && (colorMode === 'light' ? 'Dark Mode' : 'Light Mode')}
+              {isMounted && currentTheme === 'dark' ? (
+                <>
+                  <Sun className={cn('h-4 w-4', !isCollapsed && 'mr-2')} />
+                  {!isCollapsed && <span className="text-sm">Light Mode</span>}
+                </>
+              ) : (
+                <>
+                  <Moon className={cn('h-4 w-4', !isCollapsed && 'mr-2')} />
+                  {!isCollapsed && <span className="text-sm">Dark Mode</span>}
+                </>
+              )}
             </Button>
-          </Tooltip>
-
-          {/* Logout Button */}
-          <Tooltip label={isCollapsed ? "Logout" : ""} placement="right" isDisabled={!isCollapsed}>
             <Button
-              leftIcon={<FiLogOut />}
+              variant="ghost"
+              className={cn('w-full justify-start', isCollapsed && 'justify-center px-2')}
               onClick={handleLogout}
-              variant="ghost"
-              colorScheme="red" // Use red color for logout
-              size="sm"
-              width="full"
-              justifyContent={isCollapsed ? "center" : "flex-start"}
             >
-              {!isCollapsed && 'Logout'}
+              <LogOut className={cn('h-4 w-4', !isCollapsed && 'mr-2')} />
+              {!isCollapsed && <span className="text-sm">Logout</span>}
             </Button>
-          </Tooltip>
-        </VStack>
-      </Flex>
-    </Box>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

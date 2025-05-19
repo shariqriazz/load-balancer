@@ -1,60 +1,82 @@
 'use client';
 
-import { ChakraProvider, extendTheme, useColorMode } from '@chakra-ui/react';
-import { CacheProvider } from '@chakra-ui/next-js';
-import { useState, useEffect } from 'react';
-import { ThemeContext } from '@/contexts/ThemeContext';
+import { ThemeProvider as NextThemesProvider } from 'next-themes';
+import { ThemeProviderProps } from 'next-themes';
+import { useEffect, useState } from 'react';
 
-// Define the theme with light and dark mode
-const theme = extendTheme({
-  config: {
-    initialColorMode: 'system',
-    useSystemColorMode: false, // Set to false to allow manual control
-  },
-  styles: {
-    global: (props: any) => ({
-      body: {
-        bg: props.colorMode === 'dark' ? 'gray.900' : 'white',
-        color: props.colorMode === 'dark' ? 'white' : 'gray.800',
-      },
-    }),
-  },
-});
-
-// Inner component to access Chakra hooks
-function ThemeContextProvider({ children }: { children: React.ReactNode }) {
-  const { colorMode, toggleColorMode: toggleChakraColorMode } = useColorMode();
+export function Providers({ children, ...props }: ThemeProviderProps) {
   const [mounted, setMounted] = useState(false);
 
-  // Effect for handling theme changes
+  // Force immediate application of theme class on component mount
   useEffect(() => {
     setMounted(true);
+
+    // Apply theme from local storage immediately to prevent flicker
+    const storedTheme = localStorage.getItem('theme');
+    if (storedTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+      applyDarkGradient();
+    } else if (storedTheme === 'light') {
+      document.documentElement.classList.remove('dark');
+      applyLightGradient();
+    } else {
+      // Check system preference
+      const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (systemPrefersDark) {
+        document.documentElement.classList.add('dark');
+        applyDarkGradient();
+      } else {
+        document.documentElement.classList.remove('dark');
+        applyLightGradient();
+      }
+    }
+
+    // Set up a MutationObserver to detect class changes on html element
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'class') {
+          const htmlElement = document.documentElement;
+          if (htmlElement.classList.contains('dark')) {
+            applyDarkGradient();
+          } else {
+            applyLightGradient();
+          }
+        }
+      });
+    });
+
+    // Start observing the document with the configured parameters
+    observer.observe(document.documentElement, { attributes: true });
+
+    // Clean up observer
+    return () => {
+      observer.disconnect();
+    };
   }, []);
 
-  // Function to toggle theme
-  const toggleColorMode = () => {
-    toggleChakraColorMode(); // This will toggle Chakra's color mode
-  };
+  // Helper functions to apply gradients
+  function applyDarkGradient() {
+    document.body.style.background = 'linear-gradient(135deg, hsl(220 15% 18%), hsl(220 20% 14%), hsl(220 25% 10%))';
+    document.body.style.backgroundAttachment = 'fixed';
+    document.body.style.backgroundSize = 'cover';
+  }
 
-  // Avoid rendering with wrong theme
-  if (!mounted) return <>{children}</>;
+  function applyLightGradient() {
+    document.body.style.background = 'linear-gradient(135deg, hsl(210 50% 98%), hsl(240 50% 95%), hsl(220 40% 92%))';
+    document.body.style.backgroundAttachment = 'fixed';
+    document.body.style.backgroundSize = 'cover';
+  }
 
+  // Pass down any additional props to the provider
   return (
-    <ThemeContext.Provider value={{ colorMode: colorMode as 'light' | 'dark', toggleColorMode }}>
+    <NextThemesProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange={false} // Enable smooth transitions
+      {...props} // Spread remaining props
+    >
       {children}
-    </ThemeContext.Provider>
-  );
-}
-
-// Main provider component
-export function Providers({ children }: { children: React.ReactNode }) {
-  return (
-    <CacheProvider>
-      <ChakraProvider theme={theme}>
-        <ThemeContextProvider>
-          {children}
-        </ThemeContextProvider>
-      </ChakraProvider>
-    </CacheProvider>
+    </NextThemesProvider>
   );
 }

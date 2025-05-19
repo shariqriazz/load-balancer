@@ -1,34 +1,34 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  Box, 
-  Heading, 
-  Text, 
-  Stat, 
-  StatLabel, 
-  StatNumber, 
-  StatHelpText, 
-  Card, 
-  CardHeader, 
-  CardBody,
-  SimpleGrid,
-  Icon,
-  Flex,
-  useColorModeValue,
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription
+} from "@/components/ui/card";
+import {
   Tooltip,
-  IconButton,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Alert,
-  AlertIcon,
-  AlertTitle,
   AlertDescription,
-  useToast
-} from '@chakra-ui/react';
-import { FiKey, FiActivity, FiCpu, FiAlertCircle, FiRefreshCw } from 'react-icons/fi';
+  AlertTitle,
+} from "@/components/ui/alert";
+import { Activity, Key, Cpu, AlertCircle, RefreshCw, AlertTriangle, Loader2 } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import KeyStats from '@/components/keys/KeyStats';
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function Dashboard() {
+  const [timeRange, setTimeRange] = useState("24h");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({
@@ -39,10 +39,14 @@ export default function Dashboard() {
     totalRequests24h: 0, // Last 24h from logs
     errorRate: 0
   });
+  
+  const { toast } = useToast();
+  const [isClient, setIsClient] = useState(false);
 
-  const bgColor = useColorModeValue('white', 'gray.800');
-  const borderColor = useColorModeValue('gray.200', 'gray.700');
-  const toast = useToast();
+  // Set isClient to true after mounting
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const fetchStats = async () => {
     setIsLoading(true);
@@ -56,7 +60,7 @@ export default function Dashboard() {
       const keysData = await keysResponse.json();
       
       // Fetch stats for request data
-      const statsResponse = await fetch('/api/stats?timeRange=24h');
+      const statsResponse = await fetch(`/api/stats?timeRange=${timeRange}`);
       if (!statsResponse.ok) {
         throw new Error(`Error fetching stats: ${statsResponse.statusText}`);
       }
@@ -89,9 +93,7 @@ export default function Dashboard() {
       toast({
         title: 'Error',
         description: err.message || 'Failed to fetch dashboard data',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
@@ -100,122 +102,185 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchStats();
-  }, []);
+  }, [timeRange]);
+
+  const formatNumber = (value: number | undefined | null): string => {
+    if (value === undefined || value === null || isNaN(value)) {
+        return "N/A";
+    }
+    return value.toLocaleString();
+  };
+
+  const formatPercentage = (value: number | undefined | null): string => {
+    if (value === undefined || value === null || isNaN(value)) {
+        return "N/A";
+    }
+    return `${value.toFixed(1)}%`;
+  };
+
+  const renderLoading = () => (
+      <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="ml-2 text-muted-foreground">Loading dashboard...</p>
+      </div>
+  );
+
+  const renderError = () => (
+       <Alert variant="destructive" className="mb-6">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Error Fetching Dashboard Data</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+       </Alert>
+  );
 
   return (
     <AppLayout>
-      <Flex justify="space-between" align="center" mb={6}>
-        <Box>
-          <Heading size="lg">Dashboard</Heading>
-          <Text color="gray.500">Overview of your Load Balancer</Text>
-        </Box>
-        <Tooltip label="Refresh Dashboard">
-          <IconButton
-            aria-label="Refresh dashboard"
-            icon={<FiRefreshCw />}
-            onClick={fetchStats}
-            isLoading={isLoading}
-          />
-        </Tooltip>
-      </Flex>
+      <TooltipProvider>
+        {/* Header with title and refresh button */}
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+            <p className="text-sm text-muted-foreground">Overview of your Load Balancer</p>
+          </div>
 
-      {error && (
-        <Alert status="error" mb={6} borderRadius="md">
-          <AlertIcon />
-          <AlertTitle>Error!</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
+          <div className="flex items-center gap-2">
+            <Select value={timeRange} onValueChange={setTimeRange}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select time range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="24h">Last 24 Hours</SelectItem>
+                <SelectItem value="7d">Last 7 Days</SelectItem>
+                <SelectItem value="30d">Last 30 Days</SelectItem>
+              </SelectContent>
+            </Select>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" onClick={fetchStats} disabled={isLoading}>
+                  <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+                  <span className="sr-only">Refresh dashboard</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Refresh Dashboard</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
 
-      <SimpleGrid columns={{ base: 1, md: 2, lg: 3, xl: 6 }} spacing={6} mb={8}> {/* Adjusted grid columns */}
-        <Card bg={bgColor} borderWidth="1px" borderColor={borderColor} borderRadius="lg" shadow="sm">
-          <CardBody>
-            <Flex align="center" mb={2}>
-              <Icon as={FiKey} boxSize={6} color="blue.500" mr={2} />
-              <Stat>
-                <StatLabel>Total Keys</StatLabel>
-                <StatNumber>{isLoading ? '-' : stats.totalKeys}</StatNumber>
-                <StatHelpText>API Keys Configured</StatHelpText>
-              </Stat>
-            </Flex>
-          </CardBody>
-        </Card>
+        {error && renderError()}
 
-        <Card bg={bgColor} borderWidth="1px" borderColor={borderColor} borderRadius="lg" shadow="sm">
-          <CardBody>
-            <Flex align="center" mb={2}>
-              <Icon as={FiActivity} boxSize={6} color="green.500" mr={2} />
-              <Stat>
-                <StatLabel>Active Keys</StatLabel>
-                <StatNumber>{isLoading ? '-' : stats.activeKeys}</StatNumber>
-                <StatHelpText>Ready for Use</StatHelpText>
-              </Stat>
-            </Flex>
-          </CardBody>
-        </Card>
-{/* New Card for Total Requests (Last 24 Hours) */}
-<Card bg={bgColor} borderWidth="1px" borderColor={borderColor} borderRadius="lg" shadow="sm">
-  <CardBody>
-    <Flex align="center" mb={2}>
-      <Icon as={FiCpu} boxSize={6} color="cyan.500" mr={2} /> {/* Different color */}
-      <Stat>
-        <StatLabel>Total Requests (24h)</StatLabel>
-        <StatNumber>{isLoading ? '-' : stats.totalRequests24h}</StatNumber>
-        <StatHelpText>Last 24 Hours (Logs)</StatHelpText>
-      </Stat>
-    </Flex>
-  </CardBody>
-</Card>
+        {!isClient || isLoading ? (
+          renderLoading()
+        ) : (
+          <>
+            {/* Stats Cards */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 mb-8">
+              {/* Total Keys Card */}
+              <Card className="overflow-hidden transition-all duration-300 border-0 shadow-md hover:shadow-lg hover-animate">
+                <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-1)/0.2)] to-transparent opacity-50 pointer-events-none" />
+                <CardContent className="pt-6">
+                  <div className="flex items-center">
+                    <Key className="h-5 w-5 text-[hsl(var(--chart-1))] mr-2" />
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Total Keys</p>
+                      <h2 className="text-3xl font-bold">{formatNumber(stats.totalKeys)}</h2>
+                      <p className="text-xs text-muted-foreground mt-1">API Keys Configured</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-        {/* New Card for Total Requests Today */}
-        <Card bg={bgColor} borderWidth="1px" borderColor={borderColor} borderRadius="lg" shadow="sm">
-          <CardBody>
-            <Flex align="center" mb={2}>
-              <Icon as={FiCpu} boxSize={6} color="teal.500" mr={2} /> {/* Different color/icon? */}
-              <Stat>
-                <StatLabel>Total Requests (Today)</StatLabel>
-                <StatNumber>{isLoading ? '-' : stats.totalRequestsToday}</StatNumber>
-                <StatHelpText>Since Midnight (DB)</StatHelpText>
-              </Stat>
-            </Flex>
-          </CardBody>
-        </Card>
-{/* Card for Total Requests (Lifetime) - Updated Label */}
-<Card bg={bgColor} borderWidth="1px" borderColor={borderColor} borderRadius="lg" shadow="sm">
-  <CardBody>
-    <Flex align="center" mb={2}>
-      <Icon as={FiCpu} boxSize={6} color="purple.500" mr={2} />
-      <Stat>
-        <StatLabel>Total Requests (Lifetime)</StatLabel>
-        <StatNumber>{isLoading ? '-' : stats.totalRequests}</StatNumber>
-        <StatHelpText>All Time (DB)</StatHelpText>
-      </Stat>
-    </Flex>
-  </CardBody>
-</Card>
+              {/* Active Keys Card */}
+              <Card className="overflow-hidden transition-all duration-300 border-0 shadow-md hover:shadow-lg hover-animate">
+                <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-2)/0.2)] to-transparent opacity-50 pointer-events-none" />
+                <CardContent className="pt-6">
+                  <div className="flex items-center">
+                    <Activity className="h-5 w-5 text-[hsl(var(--chart-2))] mr-2" />
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Active Keys</p>
+                      <h2 className="text-3xl font-bold">{formatNumber(stats.activeKeys)}</h2>
+                      <p className="text-xs text-muted-foreground mt-1">Ready for Use</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-<Card bg={bgColor} borderWidth="1px" borderColor={borderColor} borderRadius="lg" shadow="sm">
-  <CardBody>
-    <Flex align="center" mb={2}>
-      <Icon as={FiAlertCircle} boxSize={6} color="orange.500" mr={2} />
-      <Stat>
-        <StatLabel>API Key Error Rate</StatLabel>
-        <StatNumber>{isLoading ? '-' : `${stats.errorRate}%`}</StatNumber>
-        <StatHelpText>Last 24 Hours (Logs)</StatHelpText>
-      </Stat>
-    </Flex>
-  </CardBody>
-</Card>
-</SimpleGrid>
+              {/* Requests (Last 24 Hours) Card */}
+              <Card className="overflow-hidden transition-all duration-300 border-0 shadow-md hover:shadow-lg hover-animate">
+                <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-3)/0.2)] to-transparent opacity-50 pointer-events-none" />
+                <CardContent className="pt-6">
+                  <div className="flex items-center">
+                    <Cpu className="h-5 w-5 text-[hsl(var(--chart-3))] mr-2" />
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Requests (24h)</p>
+                      <h2 className="text-3xl font-bold">{formatNumber(stats.totalRequests24h)}</h2>
+                      <p className="text-xs text-muted-foreground mt-1">Last 24 Hours (Logs)</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-      <Card bg={bgColor} borderWidth="1px" borderColor={borderColor} borderRadius="lg" shadow="sm" mb={8}>
-        <CardHeader>
-          <Heading size="md">Key Performance</Heading>
-        </CardHeader>
-        <CardBody>
-          <KeyStats />
-        </CardBody>
-      </Card>
+              {/* Requests Today Card */}
+              <Card className="overflow-hidden transition-all duration-300 border-0 shadow-md hover:shadow-lg hover-animate">
+                <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-4)/0.2)] to-transparent opacity-50 pointer-events-none" />
+                <CardContent className="pt-6">
+                  <div className="flex items-center">
+                    <Cpu className="h-5 w-5 text-[hsl(var(--chart-4))] mr-2" />
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Requests (Today)</p>
+                      <h2 className="text-3xl font-bold">{formatNumber(stats.totalRequestsToday)}</h2>
+                      <p className="text-xs text-muted-foreground mt-1">Since Midnight (DB)</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Total Requests Lifetime Card */}
+              <Card className="overflow-hidden transition-all duration-300 border-0 shadow-md hover:shadow-lg hover-animate">
+                <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-5)/0.2)] to-transparent opacity-50 pointer-events-none" />
+                <CardContent className="pt-6">
+                  <div className="flex items-center">
+                    <Cpu className="h-5 w-5 text-[hsl(var(--chart-5))] mr-2" />
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Requests (Lifetime)</p>
+                      <h2 className="text-3xl font-bold">{formatNumber(stats.totalRequests)}</h2>
+                      <p className="text-xs text-muted-foreground mt-1">All Time (DB)</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Error Rate Card */}
+              <Card className="overflow-hidden transition-all duration-300 border-0 shadow-md hover:shadow-lg hover-animate">
+                <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-1)/0.2)] to-transparent opacity-50 pointer-events-none" />
+                <CardContent className="pt-6">
+                  <div className="flex items-center">
+                    <AlertCircle className="h-5 w-5 text-[hsl(var(--chart-1))] mr-2" />
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Error Rate</p>
+                      <h2 className="text-3xl font-bold">{formatPercentage(stats.errorRate)}</h2>
+                      <p className="text-xs text-muted-foreground mt-1">Last 24 Hours</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Keys Stats Component */}
+            <Card className="border-0 shadow-lg interactive-container hover-animate">
+              <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--primary)/0.05)] via-transparent to-[hsl(var(--secondary)/0.05)] pointer-events-none" />
+              <CardHeader>
+                <CardTitle>API Key Performance</CardTitle>
+                <CardDescription>Current status and usage of individual API keys.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <KeyStats />
+              </CardContent>
+            </Card>
+          </>
+        )}
+      </TooltipProvider>
     </AppLayout>
   );
 }

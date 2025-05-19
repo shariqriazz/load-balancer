@@ -1,34 +1,42 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
-  Box,
-  Heading,
-  Text,
-  Button,
-  useDisclosure,
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalFooter,
-  ModalBody,
-  ModalCloseButton,
-  FormControl,
-  FormLabel,
-  Input,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
   Select,
-  useToast,
-  Flex,
-  Spinner,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Alert,
-  AlertIcon,
-  AlertTitle,
   AlertDescription,
-} from '@chakra-ui/react';
-import { FiPlus } from 'react-icons/fi';
+  AlertTitle,
+} from "@/components/ui/alert";
+import { useToast } from "@/hooks/use-toast";
+import { Plus, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import KeyStats from '@/components/keys/KeyStats';
+import { cn } from "@/lib/utils";
 
 interface ApiKey {
   _id: string;
@@ -59,7 +67,8 @@ export default function KeysPage() {
   const [selectedProfile, setSelectedProfile] = useState<string>('');
   const [isCreatingNewProfile, setIsCreatingNewProfile] = useState(false);
   const [newProfileName, setNewProfileName] = useState('');
-  const { isOpen, onOpen: originalOnOpen, onClose: originalOnClose } = useDisclosure();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const { toast } = useToast();
 
   // Custom onOpen handler to reset form state
   const onOpen = () => {
@@ -69,14 +78,13 @@ export default function KeysPage() {
     setSelectedProfile('');
     setIsCreatingNewProfile(false);
     setNewProfileName('');
-    originalOnOpen();
+    setIsModalOpen(true);
   };
 
   // Custom onClose handler
   const onClose = () => {
-    originalOnClose();
+    setIsModalOpen(false);
   };
-  const toast = useToast();
 
   const fetchKeys = async () => {
     setIsLoading(true);
@@ -124,9 +132,7 @@ export default function KeysPage() {
       toast({
         title: 'Error',
         description: 'API key cannot be empty',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
+        variant: 'destructive',
       });
       return;
     }
@@ -139,9 +145,7 @@ export default function KeysPage() {
         toast({
           title: 'Error',
           description: 'Profile name cannot be empty when creating a new profile',
-          status: 'error',
-          duration: 3000,
-          isClosable: true,
+          variant: 'destructive',
         });
         return;
       }
@@ -172,9 +176,6 @@ export default function KeysPage() {
       toast({
         title: 'Success',
         description: 'API key added successfully',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
       });
 
       // Reset all form fields
@@ -190,132 +191,184 @@ export default function KeysPage() {
       toast({
         title: 'Error',
         description: err.message || 'Failed to add API key',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
+        variant: 'destructive',
       });
+    }
+  };
+
+  // Handle profile selection change
+  const handleProfileChange = (value: string) => {
+    if (value === "new") {
+      setIsCreatingNewProfile(true);
+      setSelectedProfile("");
+    } else {
+      setIsCreatingNewProfile(false);
+      setSelectedProfile(value);
     }
   };
 
   return (
     <AppLayout>
-      <Flex justify="space-between" align="center" mb={6}>
-        <Box>
-          <Heading size="lg">API Keys</Heading>
-          <Text color="gray.500">Manage your API keys</Text>
-        </Box>
-        <Button leftIcon={<FiPlus />} colorScheme="blue" onClick={onOpen}>
-          Add New Key
-        </Button>
-      </Flex>
+      <TooltipProvider>
+        <div className="p-6 space-y-6">
+          {/* Header */}
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight">API Keys</h1>
+              <p className="text-sm text-muted-foreground">Manage your API keys</p>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              {/* Refresh Button */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="icon" onClick={fetchKeys} disabled={isLoading}>
+                    <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+                    <span className="sr-only">Refresh keys</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Refresh Keys</p>
+                </TooltipContent>
+              </Tooltip>
 
-      {error && (
-        <Alert status="error" mb={6} borderRadius="md">
-          <AlertIcon />
-          <AlertTitle>Error!</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
+              {/* Add New Key Dialog Trigger */}
+              <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+                <DialogTrigger asChild>
+                  <Button onClick={onOpen}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add New Key
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Add New API Key</DialogTitle>
+                    <DialogDescription>
+                      Configure a new API key for the load balancer.
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <div className="grid gap-4 py-4">
+                    {/* Step 1: Profile Selection */}
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="profile" className="text-right">
+                        Profile <span className="text-destructive">*</span>
+                      </Label>
+                      <div className="col-span-3">
+                        <Select
+                          value={isCreatingNewProfile ? "new" : selectedProfile}
+                          onValueChange={handleProfileChange}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a profile" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {existingProfiles.map(profile => (
+                              <SelectItem key={profile} value={profile}>{profile}</SelectItem>
+                            ))}
+                            <SelectItem value="new">+ Create New Profile</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
 
-      {isLoading ? (
-        <Flex justify="center" align="center" h="200px">
-          <Spinner size="xl" color="blue.500" />
-        </Flex>
-      ) : (
-        <KeyStats />
-      )}
+                    {/* Show input for new profile name if creating new profile */}
+                    {isCreatingNewProfile && (
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="newProfileName" className="text-right">
+                          New Profile <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                          id="newProfileName"
+                          placeholder="e.g., Google, OpenAI, Anthropic"
+                          value={newProfileName}
+                          onChange={(e) => setNewProfileName(e.target.value)}
+                          className="col-span-3"
+                        />
+                      </div>
+                    )}
 
-      {/* Add Key Modal */}
-      <Modal isOpen={isOpen} onClose={onClose}>
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Add New API Key</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            {/* Step 1: Profile Selection */}
-            <FormControl isRequired mb={4}>
-              <FormLabel>Profile</FormLabel>
-              <Select
-                placeholder="Select a profile"
-                value={isCreatingNewProfile ? "new" : selectedProfile}
-                onChange={(e) => {
-                  if (e.target.value === "new") {
-                    setIsCreatingNewProfile(true);
-                    setSelectedProfile("");
-                  } else {
-                    setIsCreatingNewProfile(false);
-                    setSelectedProfile(e.target.value);
-                  }
-                }}
-              >
-                {existingProfiles.map(profile => (
-                  <option key={profile} value={profile}>{profile}</option>
-                ))}
-                <option value="new">+ Create New Profile</option>
-              </Select>
-            </FormControl>
+                    {/* Only show the rest of the form if a profile is selected or creating new profile */}
+                    {(selectedProfile || isCreatingNewProfile) && (
+                      <>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="apiKey" className="text-right">
+                            API Key <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            id="apiKey"
+                            placeholder="Enter your API key"
+                            value={newKey}
+                            onChange={(e) => setNewKey(e.target.value)}
+                            className="col-span-3"
+                          />
+                        </div>
 
-            {/* Show input for new profile name if creating new profile */}
-            {isCreatingNewProfile && (
-              <FormControl isRequired mb={4}>
-                <FormLabel>New Profile Name</FormLabel>
-                <Input
-                  placeholder="e.g., Google, OpenAI, Anthropic"
-                  value={newProfileName}
-                  onChange={(e) => setNewProfileName(e.target.value)}
-                />
-              </FormControl>
-            )}
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="keyName" className="text-right">
+                            Key Name
+                          </Label>
+                          <Input
+                            id="keyName"
+                            placeholder="e.g., My Test Key"
+                            value={newKeyName}
+                            onChange={(e) => setNewKeyName(e.target.value)}
+                            className="col-span-3"
+                          />
+                        </div>
 
-            {/* Only show the rest of the form if a profile is selected or creating new profile */}
-            {(selectedProfile || isCreatingNewProfile) && (
-              <>
-                <FormControl isRequired mb={4}>
-                  <FormLabel>API Key</FormLabel>
-                  <Input
-                    placeholder="Enter your API key"
-                    value={newKey}
-                    onChange={(e) => setNewKey(e.target.value)}
-                  />
-                </FormControl>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="dailyRateLimit" className="text-right">
+                            Daily Rate Limit
+                          </Label>
+                          <Input
+                            id="dailyRateLimit"
+                            type="number"
+                            placeholder="e.g., 100 (leave empty for no limit)"
+                            value={newKeyDailyRateLimit}
+                            onChange={(e) => setNewKeyDailyRateLimit(e.target.value)}
+                            min="0"
+                            className="col-span-3"
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  
+                  <DialogFooter>
+                    <DialogClose asChild>
+                      <Button variant="outline">Cancel</Button>
+                    </DialogClose>
+                    <Button 
+                      onClick={handleAddKey}
+                      disabled={!(selectedProfile || (isCreatingNewProfile && newProfileName.trim()))}
+                    >
+                      Add Key
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
 
-                <FormControl mb={4}>
-                  <FormLabel>Key Name (Optional)</FormLabel>
-                  <Input
-                    placeholder="e.g., My Test Key"
-                    value={newKeyName}
-                    onChange={(e) => setNewKeyName(e.target.value)}
-                  />
-                </FormControl>
+          {/* Error Alert */}
+          {error && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error!</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
-                <FormControl>
-                  <FormLabel>Daily Rate Limit (Optional)</FormLabel>
-                  <Input
-                    type="number"
-                    placeholder="e.g., 100 (leave empty for no limit)"
-                    value={newKeyDailyRateLimit}
-                    onChange={(e) => setNewKeyDailyRateLimit(e.target.value)}
-                    min="0"
-                  />
-                </FormControl>
-              </>
-            )}
-          </ModalBody>
-
-          <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={onClose}>
-              Cancel
-            </Button>
-            <Button
-              colorScheme="blue"
-              onClick={handleAddKey}
-              isDisabled={!(selectedProfile || (isCreatingNewProfile && newProfileName.trim()))}
-            >
-              Add Key
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+          {isLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <KeyStats />
+          )}
+        </div>
+      </TooltipProvider>
     </AppLayout>
   );
 }

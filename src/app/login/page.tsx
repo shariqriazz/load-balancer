@@ -2,31 +2,25 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { LogIn, Loader2 } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
 import {
-  Box,
-  Button,
-  Container,
-  FormControl,
-  FormLabel,
-  Input,
-  Heading,
-  Text,
-  VStack,
-  useToast,
-  useColorModeValue,
-  Flex,
-  Icon
-} from '@chakra-ui/react';
-import { FiLogIn } from 'react-icons/fi';
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const toast = useToast();
-  const bgColor = useColorModeValue('gray.50', 'gray.800');
-  const cardBgColor = useColorModeValue('white', 'gray.700');
-  const borderColor = useColorModeValue('gray.200', 'gray.600');
+  const { toast } = useToast();
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -44,9 +38,7 @@ export default function LoginPage() {
         router.push('/dashboard');
         toast({
           title: 'Login Successful',
-          status: 'success',
-          duration: 3000,
-          isClosable: true,
+          variant: 'default',
         });
       } else {
         const data = await response.json();
@@ -56,9 +48,7 @@ export default function LoginPage() {
       toast({
         title: 'Login Failed',
         description: error.message || 'An error occurred during login.',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
@@ -66,52 +56,50 @@ export default function LoginPage() {
   };
 
   return (
-    <Flex minH="100vh" align="center" justify="center" bg={bgColor}>
-      <Container maxW="lg">
-        <Box
-          bg={cardBgColor}
-          p={8}
-          borderRadius="lg"
-          boxShadow="lg"
-          borderWidth="1px"
-          borderColor={borderColor}
-        >
-          <VStack spacing={6}>
-            <Icon as={FiLogIn} w={10} h={10} color="blue.500" />
-            <Heading as="h1" size="xl" textAlign="center">
-              Admin Login
-            </Heading>
-            <Text textAlign="center" color="gray.500">
-              Enter the password to access the dashboard.
-            </Text>
-            <form onSubmit={handleSubmit} style={{ width: '100%' }}>
-              <VStack spacing={4}>
-                <FormControl isRequired>
-                  <FormLabel htmlFor="password">Password</FormLabel>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter password"
-                    size="lg"
-                  />
-                </FormControl>
-                <Button
-                  type="submit"
-                  colorScheme="blue"
-                  isLoading={isLoading}
-                  loadingText="Logging in..."
-                  width="full"
-                  size="lg"
-                >
-                  Login
-                </Button>
-              </VStack>
-            </form>
-          </VStack>
-        </Box>
-      </Container>
-    </Flex>
+    <div className="flex items-center justify-center min-h-screen p-4 bg-background">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1 text-center">
+          <div className="flex justify-center mb-4">
+            <LogIn className="w-10 h-10 text-primary" />
+          </div>
+          <CardTitle className="text-2xl">Admin Login</CardTitle>
+          <CardDescription>
+            Enter the password to access the dashboard.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit}>
+            <div className="grid items-center w-full gap-4">
+              <div className="flex flex-col space-y-1.5">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter password"
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Logging in...
+                  </>
+                ) : (
+                  'Login'
+                )}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

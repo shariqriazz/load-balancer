@@ -1,56 +1,29 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react'; // Add useCallback
-import {
-  Box,
-  // Grid, // Removed unused import
-  // GridItem, // Removed unused import
-  Heading,
-  Text,
-  FormControl,
-  FormLabel,
-  Input,
-  Select,
-  Switch,
-  Button,
-  useToast,
-  Card,
-  CardHeader,
-  CardBody,
-  Divider,
-  Flex,
-  NumberInput,
-  NumberInputField,
-  NumberInputStepper,
-  NumberIncrementStepper,
-  NumberDecrementStepper,
-  useColorModeValue,
-  Alert,
-  AlertIcon,
-  AlertTitle,
-  AlertDescription,
-  IconButton,
-  Tooltip,
-  Spinner,
-  SimpleGrid, // Import SimpleGrid
-} from '@chakra-ui/react';
-import { FiSave, FiRefreshCw, FiDownload, FiUpload } from 'react-icons/fi';
-import AppLayout from '@/components/layout/AppLayout'; // Import AppLayout
-import { useContext } from 'react';
-import { ThemeContext } from '@/contexts/ThemeContext';
+import { useState, useEffect, useCallback, ChangeEvent } from 'react';
+import { useTheme } from 'next-themes';
+import { Save, RefreshCw, Download, Upload, AlertCircle, CheckCircle, Loader2, BarChart3, Clock, Key } from 'lucide-react';
+import { cn } from "@/lib/utils";
 
-import { SettingsForm } from '@/components/settings/SettingsForm';
-// Remove the AdminLayout import since it's not being used
-// import { AdminLayout } from '@/components/layout/AdminLayout';
-import { EndpointSetting } from '@/components/settings/EndpointSetting';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import AppLayout from '@/components/layout/AppLayout';
+import { useToast } from '@/hooks/use-toast';
 
 interface Settings {
   keyRotationRequestCount: number;
   maxFailureCount: number;
   rateLimitCooldown: number;
   logRetentionDays: number;
-  endpoint: string; // Add endpoint field
-  failoverDelay: number; // Delay before switching API on rate limited (0 for immediate)
+  endpoint: string;
+  failoverDelay: number;
 }
 
 export default function SettingsPage() {
@@ -59,8 +32,8 @@ export default function SettingsPage() {
     maxFailureCount: 5,
     rateLimitCooldown: 60,
     logRetentionDays: 14,
-    endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai', // Add default endpoint
-    failoverDelay: 2, // Default 2 seconds delay before switching API on rate limited
+    endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    failoverDelay: 2,
   });
 
   const [isLoading, setIsLoading] = useState(true);
@@ -69,19 +42,30 @@ export default function SettingsPage() {
   const [isSaved, setIsSaved] = useState(false);
   const [isCleaning, setIsCleaning] = useState(false);
   const [cleanupResult, setCleanupResult] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null); // State for import file
-  const [isImporting, setIsImporting] = useState(false); // State for import button
-  const [importResult, setImportResult] = useState<{ message: string; details?: any } | null>(null); // State for import result message
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ message: string; details?: any } | null>(null);
+  const [timeRange, setTimeRange] = useState("24h");
+  const [summaryStatsData, setSummaryStatsData] = useState<any>(null);
+  const [summaryStatsLoading, setSummaryStatsLoading] = useState<boolean>(true);
+  const [summaryStatsError, setSummaryStatsError] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState<boolean>(false);
 
-  const toast = useToast();
-  const { colorMode, toggleColorMode } = useContext(ThemeContext);
+  const { toast } = useToast();
+  const { theme, setTheme } = useTheme();
 
-  const cardBg = useColorModeValue('white', 'gray.800');
-  const borderColor = useColorModeValue('gray.200', 'gray.700');
+  // Simplified stats structure for summary cards
+  const [summaryStats, setSummaryStats] = useState({
+    totalRequests: 0,
+    successRate: 0,
+    totalRequestsToday: 0,
+    activeKeys: 0
+  });
 
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+    setIsSaved(false);
 
     try {
       const response = await fetch('/api/settings');
@@ -92,22 +76,74 @@ export default function SettingsPage() {
       const data = await response.json();
       setSettings(data);
     } catch (err: any) {
-      setError(err.message || 'Failed to fetch settings');
+      const errorMessage = err.message || 'Failed to fetch settings';
+      setError(errorMessage);
       console.error('Error fetching settings:', err);
       toast({
-        title: 'Error',
-        description: err.message || 'Failed to fetch settings',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
+        title: 'Error Fetching Settings',
+        description: errorMessage,
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
     }
+  }, [toast]);
+
+  // Formatters
+  const formatPercentage = (value: number | undefined | null): string => {
+    if (value === undefined || value === null || isNaN(value)) {
+        return "N/A";
+    }
+    return `${value.toFixed(1)}%`;
   };
+
+  const formatNumber = (value: number | undefined | null): string => {
+    if (value === undefined || value === null || isNaN(value)) {
+        return "N/A";
+    }
+    return value.toLocaleString();
+  }
+
+  // Fetch data for the summary cards
+  const fetchSummaryStats = useCallback(async () => {
+    setSummaryStatsLoading(true);
+    setSummaryStatsError(null);
+    try {
+      const response = await fetch(`/api/stats?timeRange=${timeRange}`);
+      if (!response.ok) {
+        const errorData = await response.text();
+        throw new Error(`Error fetching summary statistics (${response.status}): ${errorData || response.statusText}`);
+      }
+      const data = await response.json();
+      setSummaryStatsData(data);
+      setSummaryStats({
+        totalRequests: data?.totalRequests ?? 0,
+        successRate: data?.successRate ?? 0,
+        totalRequestsToday: data?.totalRequestsToday ?? 0,
+        activeKeys: data?.activeKeys ?? 0,
+      });
+    } catch (err: any) {
+      const errorMessage = err.message || "Failed to fetch summary statistics";
+      setSummaryStatsError(errorMessage);
+      console.error("Error fetching summary stats:", err);
+    } finally {
+      setSummaryStatsLoading(false);
+    }
+  }, [timeRange]);
 
   useEffect(() => {
     fetchSettings();
+    fetchSummaryStats();
+  }, [fetchSettings, fetchSummaryStats]);
+
+  // Re-fetch summary stats when timeRange changes
+  useEffect(() => {
+    fetchSummaryStats();
+  }, [timeRange, fetchSummaryStats]);
+
+  // Set isClient to true after mounting
+  useEffect(() => {
+    setIsClient(true);
   }, []);
 
   const handleSaveSettings = async () => {
@@ -134,31 +170,42 @@ export default function SettingsPage() {
       setIsSaved(true);
 
       toast({
-        title: 'Settings saved',
-        description: 'Your settings have been updated successfully',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
+        title: 'Settings Saved',
+        description: 'Your settings have been updated successfully.',
       });
+
+      // Auto-dismiss success alert after a delay
+      setTimeout(() => setIsSaved(false), 3000);
     } catch (err: any) {
-      setError(err.message || 'Failed to save settings');
+      const errorMessage = err.message || 'Failed to save settings';
+      setError(errorMessage);
       toast({
-        title: 'Error',
-        description: err.message || 'Failed to save settings',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
+        title: 'Error Saving Settings',
+        description: errorMessage,
+        variant: 'destructive',
       });
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Function to trigger log cleanup
+  const handleInputChange = (field: keyof Settings, value: string | number) => {
+    // Ensure numeric fields are stored as numbers
+    const numericFields: (keyof Settings)[] = [
+      'keyRotationRequestCount',
+      'maxFailureCount',
+      'rateLimitCooldown',
+      'logRetentionDays',
+      'failoverDelay',
+    ];
+    const processedValue = numericFields.includes(field) ? Number(value) : value;
+    setSettings((prev) => ({ ...prev, [field]: processedValue }));
+  };
+
   const handleCleanupLogs = useCallback(async () => {
     setIsCleaning(true);
     setCleanupResult(null);
-    setError(null); // Clear previous general errors
+    setError(null);
 
     try {
       const response = await fetch('/api/admin/cleanup-logs', {
@@ -170,62 +217,52 @@ export default function SettingsPage() {
         throw new Error(data.error || 'Log cleanup failed');
       }
 
-      setCleanupResult(data.message || 'Log cleanup completed successfully.');
+      const successMessage = data.message || 'Log cleanup completed successfully.';
+      setCleanupResult(successMessage);
       toast({
         title: 'Log Cleanup Successful',
-        description: data.message || 'Old log files have been deleted.',
-        status: 'success',
-        duration: 5000,
-        isClosable: true,
+        description: successMessage,
       });
-
     } catch (err: any) {
-      setCleanupResult(`Error: ${err.message}`);
-      setError(`Cleanup Error: ${err.message}`); // Show error specifically
+      const errorMessage = `Error: ${err.message}`;
+      setCleanupResult(errorMessage);
+      setError(`Cleanup Error: ${err.message}`);
       toast({
         title: 'Log Cleanup Failed',
         description: err.message || 'Could not delete old log files.',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
+        variant: 'destructive',
       });
     } finally {
       setIsCleaning(false);
     }
   }, [toast]);
 
-  // Handler for file input change
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       setSelectedFile(event.target.files[0]);
-      setImportResult(null); // Clear previous results
+      setImportResult(null);
     } else {
       setSelectedFile(null);
     }
   };
 
-  // Handler for triggering full data export
   const handleExportData = () => {
-    // Simply navigate to the new data export endpoint
     window.location.href = '/api/admin/data/export';
   };
 
-  // Handler for importing full data (OVERWRITES EXISTING DATA)
   const handleImportData = useCallback(async () => {
     if (!selectedFile) {
       toast({
         title: 'No file selected',
         description: 'Please select a JSON file to import.',
-        status: 'warning',
-        duration: 3000,
-        isClosable: true,
+        variant: 'destructive',
       });
       return;
     }
 
     setIsImporting(true);
     setImportResult(null);
-    setError(null); // Clear previous general errors
+    setError(null);
 
     const formData = new FormData();
     formData.append('file', selectedFile);
@@ -233,7 +270,7 @@ export default function SettingsPage() {
     try {
       const response = await fetch('/api/admin/data/import', {
         method: 'POST',
-        body: formData, // Send as FormData
+        body: formData,
       });
 
       const data = await response.json();
@@ -242,345 +279,368 @@ export default function SettingsPage() {
         throw new Error(data.error || data.message || 'Data import failed');
       }
 
-      setImportResult({ message: data.message, details: data }); // Store full result details
+      setImportResult({ message: data.message, details: data });
       toast({
         title: 'Data Import Complete',
-        // Adjust description based on the new API response structure if needed
         description: data.message || `Import finished. Keys: ${data.results?.keys}, Settings: ${data.results?.settings}, Logs: ${data.results?.logs}. Errors: ${data.results?.errors?.length || 0}`,
-        status: data.results?.errors?.length > 0 ? 'warning' : 'success',
-        duration: 7000, // Longer duration to read details
-        isClosable: true,
+        variant: data.results?.errors?.length > 0 ? 'destructive' : 'default',
       });
-      // Optionally refresh keys list if displayed on this page or redirect
-
     } catch (err: any) {
-      setImportResult({ message: `Error: ${err.message}` });
-      setError(`Import Error: ${err.message}`); // Show error specifically
+      const errorMessage = err.message || 'Failed to import data';
+      setError(errorMessage);
       toast({
-        title: 'Data Import Failed',
-        description: err.message || 'Could not import data from file.',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
+        title: 'Import Failed',
+        description: errorMessage,
+        variant: 'destructive',
       });
     } finally {
       setIsImporting(false);
-      setSelectedFile(null); // Clear file input after attempt
-      // Clear the actual file input element value
-      const fileInput = document.getElementById('import-file-input') as HTMLInputElement;
-      if (fileInput) {
-        fileInput.value = '';
-      }
     }
   }, [selectedFile, toast]);
 
-  if (isLoading) {
-    return (
-      <AppLayout> {/* Use AppLayout for loading state */}
-        {/* Removed Grid and Sidebar */}
-        <Box p={6}> {/* Wrap content */}
-          <Flex justify="center" align="center" h="80vh">
-            <Spinner size="xl" color="blue.500" />
-          </Flex>
-        </Box>
-      </AppLayout>
-    );
-  }
+  const toggleTheme = () => {
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+  };
 
   return (
-    <AppLayout> {/* Use AppLayout for main content */}
-      {/* Removed Grid and Sidebar */}
-      {/* Main content starts here */}
-        <Flex justify="space-between" align="center" mb={6}>
-          <Box>
-            <Heading size="lg">Settings</Heading>
-            <Text color="gray.500">Configure your Load Balancer</Text>
-          </Box>
-          <Tooltip label="Refresh Settings">
-            <IconButton
-              aria-label="Refresh settings"
-              icon={<FiRefreshCw />}
-              onClick={fetchSettings}
-              isLoading={isLoading}
-            />
-          </Tooltip>
-        </Flex>
+    <AppLayout>
+      <TooltipProvider>
+        <div className="p-6 space-y-6">
+          {/* Header section */}
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+              <p className="text-sm text-muted-foreground">Configure your load balancer behavior</p>
+            </div>
 
-        {error && (
-          <Alert status="error" mb={6} borderRadius="md">
-            <AlertIcon />
-            <AlertTitle>Error!</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+            <div className="flex items-center gap-2">
+              <Select value={timeRange} onValueChange={setTimeRange}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Select time range" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="24h">Last 24 Hours</SelectItem>
+                  <SelectItem value="7d">Last 7 Days</SelectItem>
+                  <SelectItem value="30d">Last 30 Days</SelectItem>
+                  <SelectItem value="90d">Last 90 Days</SelectItem>
+                </SelectContent>
+              </Select>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="icon" onClick={() => { fetchSummaryStats(); }} disabled={summaryStatsLoading}>
+                    <RefreshCw className={cn("h-4 w-4", summaryStatsLoading && "animate-spin")} />
+                    <span className="sr-only">Refresh stats</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Refresh Stats</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
 
-        {isSaved && (
-          <Alert status="success" mb={6} borderRadius="md">
-            <AlertIcon />
-            <AlertTitle>Success!</AlertTitle>
-            <AlertDescription>Settings saved successfully</AlertDescription>
-          </Alert>
-        )}
+          {/* Display summary stats error if exists */}
+          {summaryStatsError && (
+            <Alert variant="destructive">
+              <AlertCircle className="w-4 h-4" />
+              <AlertTitle>Error Fetching Summary Stats</AlertTitle>
+              <AlertDescription>{summaryStatsError}</AlertDescription>
+            </Alert>
+          )}
 
-        {/* Add the API Endpoint Configuration card here, before the SimpleGrid */}
-        <Card bg={cardBg} borderWidth="1px" borderColor={borderColor} borderRadius="lg" shadow="sm" mb={6}>
-          <CardHeader>
-            <Heading size="md">API Endpoint Configuration</Heading>
-          </CardHeader>
-          <Divider borderColor={borderColor} />
-          <CardBody>
-            <EndpointSetting
-              value={settings.endpoint || 'https://generativelanguage.googleapis.com/v1beta/openai'}
-              onChange={(value) => setSettings({ ...settings, endpoint: value })}
-            />
-          </CardBody>
-        </Card>
+          {/* Main content wrapped in client check */}
+          {!isClient ? (
+            <div className="space-y-6">
+              {/* Placeholder skeleton loader for summary cards */}
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <Card><CardContent className="pt-6 h-[108px] flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></CardContent></Card>
+                <Card><CardContent className="pt-6 h-[108px] flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></CardContent></Card>
+                <Card><CardContent className="pt-6 h-[108px] flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></CardContent></Card>
+                <Card><CardContent className="pt-6 h-[108px] flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></CardContent></Card>
+              </div>
+              {/* Placeholder skeleton loader for settings form */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>System Settings</CardTitle>
+                  <CardDescription>Configure load balancer behavior</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-center py-10">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            <>
+              {/* Stats Summary Cards */}
+              {summaryStatsLoading ? (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  <Card><CardContent className="pt-6"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></CardContent></Card>
+                  <Card><CardContent className="pt-6"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></CardContent></Card>
+                  <Card><CardContent className="pt-6"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></CardContent></Card>
+                  <Card><CardContent className="pt-6"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></CardContent></Card>
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  <Card className="overflow-hidden transition-all duration-300 border-0 shadow-md hover:shadow-lg hover-animate">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-1)/0.2)] to-transparent opacity-50 pointer-events-none" />
+                    <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                      <CardTitle className="text-sm font-medium">Total Requests</CardTitle>
+                      <BarChart3 className="w-5 h-5 text-[hsl(var(--chart-1))]" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{formatNumber(summaryStats.totalRequests)}</div>
+                      <p className="text-xs text-muted-foreground">Lifetime total</p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="overflow-hidden transition-all duration-300 border-0 shadow-md hover:shadow-lg hover-animate">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-2)/0.2)] to-transparent opacity-50 pointer-events-none" />
+                    <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                      <CardTitle className="text-sm font-medium">Today's Requests</CardTitle>
+                      <BarChart3 className="w-5 h-5 text-[hsl(var(--chart-2))]" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{formatNumber(summaryStats.totalRequestsToday)}</div>
+                      <p className="text-xs text-muted-foreground">Since midnight</p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="overflow-hidden transition-all duration-300 border-0 shadow-md hover:shadow-lg hover-animate">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-3)/0.2)] to-transparent opacity-50 pointer-events-none" />
+                    <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                      <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
+                      <CheckCircle className="w-5 h-5 text-[hsl(var(--chart-3))]" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{formatPercentage(summaryStats.successRate)}</div>
+                      <p className="text-xs text-muted-foreground">In selected period</p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="overflow-hidden transition-all duration-300 border-0 shadow-md hover:shadow-lg hover-animate">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-4)/0.2)] to-transparent opacity-50 pointer-events-none" />
+                    <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                      <CardTitle className="text-sm font-medium">Active Keys</CardTitle>
+                      <Key className="w-5 h-5 text-[hsl(var(--chart-4))]" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{formatNumber(summaryStats.activeKeys)}</div>
+                      <p className="text-xs text-muted-foreground">Currently in rotation</p>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
 
-        <SimpleGrid columns={{ base: 1, lg: 2 }} gap={6} mb={6}> {/* Adjusted grid columns and added margin */}
-          <Card bg={cardBg} borderWidth="1px" borderColor={borderColor} borderRadius="lg" shadow="sm">
-            <CardHeader>
-              <Heading size="md">API Key Settings</Heading>
-            </CardHeader>
-            <Divider borderColor={borderColor} />
-            <CardBody>
-              <FormControl mb={4}>
-                <FormLabel>Key Rotation Request Count</FormLabel>
-                <NumberInput
-                  value={settings.keyRotationRequestCount}
-                  onChange={(_, value) => setSettings({ ...settings, keyRotationRequestCount: value })}
-                  min={1}
-                  max={100}
-                >
-                  <NumberInputField />
-                  <NumberInputStepper>
-                    <NumberIncrementStepper />
-                    <NumberDecrementStepper />
-                  </NumberInputStepper>
-                </NumberInput>
-                <Text fontSize="sm" color="gray.500" mt={1}>
-                  Number of requests before rotating to the next API key
-                </Text>
-              </FormControl>
+              {/* Display settings errors if they exist */}
+              {error && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertCircle className="w-4 h-4" />
+                  <AlertTitle>Error</AlertTitle>
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
 
-              <FormControl mb={4}>
-                <FormLabel>Maximum Failure Count</FormLabel>
-                <NumberInput
-                  value={settings.maxFailureCount}
-                  onChange={(_, value) => setSettings({ ...settings, maxFailureCount: value })}
-                  min={1}
-                  max={100}
-                >
-                  <NumberInputField />
-                  <NumberInputStepper>
-                    <NumberIncrementStepper />
-                    <NumberDecrementStepper />
-                  </NumberInputStepper>
-                </NumberInput>
-                <Text fontSize="sm" color="gray.500" mt={1}>
-                  Number of failures before deactivating an API key
-                </Text>
-              </FormControl>
+              {/* Display success message */}
+              {isSaved && (
+                <Alert className="mb-4">
+                  <CheckCircle className="w-4 h-4" />
+                  <AlertTitle>Success</AlertTitle>
+                  <AlertDescription>Settings saved successfully.</AlertDescription>
+                </Alert>
+              )}
 
-              <FormControl mb={4}>
-                <FormLabel>Rate Limit Cooldown (seconds)</FormLabel>
-                <NumberInput
-                  value={settings.rateLimitCooldown}
-                  onChange={(_, value) => setSettings({ ...settings, rateLimitCooldown: value })}
-                  min={1}
-                  max={3600}
-                >
-                  <NumberInputField />
-                  <NumberInputStepper>
-                    <NumberIncrementStepper />
-                    <NumberDecrementStepper />
-                  </NumberInputStepper>
-                </NumberInput>
-                <Text fontSize="sm" color="gray.500" mt={1}>
-                  Default cooldown period when rate limit is hit (if not specified by API)
-                </Text>
-              </FormControl>
+              {/* Settings Form */}
+              <Card className="hover-animate">
+                <CardHeader>
+                  <CardTitle>System Settings</CardTitle>
+                  <CardDescription>Configure load balancer behavior</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {isLoading ? (
+                    <div className="flex items-center justify-center py-10">
+                      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                    </div>
+                  ) : (
+                    <div className="grid gap-6">
+                      <div className="grid gap-3">
+                        <div className="grid items-center grid-cols-4 gap-4">
+                          <Label htmlFor="keyRotationRequestCount" className="text-right">
+                            Key Rotation Request Count
+                          </Label>
+                          <Input
+                            id="keyRotationRequestCount"
+                            type="number"
+                            value={settings.keyRotationRequestCount}
+                            onChange={(e) => handleInputChange('keyRotationRequestCount', e.target.value)}
+                            className="col-span-3"
+                          />
+                        </div>
+                        <div className="grid items-center grid-cols-4 gap-4">
+                          <Label htmlFor="maxFailureCount" className="text-right">
+                            Max Failure Count
+                          </Label>
+                          <Input
+                            id="maxFailureCount"
+                            type="number"
+                            value={settings.maxFailureCount}
+                            onChange={(e) => handleInputChange('maxFailureCount', e.target.value)}
+                            className="col-span-3"
+                          />
+                        </div>
+                        <div className="grid items-center grid-cols-4 gap-4">
+                          <Label htmlFor="rateLimitCooldown" className="text-right">
+                            Rate Limit Cooldown (seconds)
+                          </Label>
+                          <Input
+                            id="rateLimitCooldown"
+                            type="number"
+                            value={settings.rateLimitCooldown}
+                            onChange={(e) => handleInputChange('rateLimitCooldown', e.target.value)}
+                            className="col-span-3"
+                          />
+                        </div>
+                        <div className="grid items-center grid-cols-4 gap-4">
+                          <Label htmlFor="logRetentionDays" className="text-right">
+                            Log Retention Days
+                          </Label>
+                          <Input
+                            id="logRetentionDays"
+                            type="number"
+                            value={settings.logRetentionDays}
+                            onChange={(e) => handleInputChange('logRetentionDays', e.target.value)}
+                            className="col-span-3"
+                          />
+                        </div>
+                        <div className="grid items-center grid-cols-4 gap-4">
+                          <Label htmlFor="failoverDelay" className="text-right">
+                            Failover Delay (seconds)
+                          </Label>
+                          <Input
+                            id="failoverDelay"
+                            type="number"
+                            value={settings.failoverDelay}
+                            onChange={(e) => handleInputChange('failoverDelay', e.target.value)}
+                            className="col-span-3"
+                          />
+                        </div>
+                        <div className="grid items-center grid-cols-4 gap-4">
+                          <Label htmlFor="endpoint" className="text-right">
+                            API Endpoint
+                          </Label>
+                          <Input
+                            id="endpoint"
+                            type="text"
+                            value={settings.endpoint}
+                            onChange={(e) => handleInputChange('endpoint', e.target.value)}
+                            className="col-span-3"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+                <CardFooter className="flex justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Label htmlFor="theme-toggle">Dark Mode</Label>
+                    <Switch id="theme-toggle" checked={theme === 'dark'} onCheckedChange={toggleTheme} />
+                  </div>
+                  <Button onClick={handleSaveSettings} disabled={isLoading || isSaving}>
+                    {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                    Save Settings
+                  </Button>
+                </CardFooter>
+              </Card>
 
-              <FormControl mb={4}>
-                <FormLabel>Failover Delay (seconds)</FormLabel>
-                <NumberInput
-                  value={settings.failoverDelay}
-                  onChange={(_, value) => setSettings({ ...settings, failoverDelay: value })}
-                  min={0}
-                  max={60}
-                >
-                  <NumberInputField />
-                  <NumberInputStepper>
-                    <NumberIncrementStepper />
-                    <NumberDecrementStepper />
-                  </NumberInputStepper>
-                </NumberInput>
-                <Text fontSize="sm" color="gray.500" mt={1}>
-                  Delay before switching API on rate limited (0 for immediate)
-                </Text>
-              </FormControl>
-            </CardBody>
-          </Card>
+              <Separator className="my-6" />
 
-          <Card bg={cardBg} borderWidth="1px" borderColor={borderColor} borderRadius="lg" shadow="sm">
-            <CardHeader>
-              <Heading size="md">System Settings</Heading>
-            </CardHeader>
-            <Divider borderColor={borderColor} />
-            <CardBody>
-              <FormControl mb={4}>
-                <FormLabel>Log Retention (days)</FormLabel>
-                <NumberInput
-                  value={settings.logRetentionDays}
-                  onChange={(_, value) => setSettings({ ...settings, logRetentionDays: value })}
-                  min={1}
-                  max={90}
-                >
-                  <NumberInputField />
-                  <NumberInputStepper>
-                    <NumberIncrementStepper />
-                    <NumberDecrementStepper />
-                  </NumberInputStepper>
-                </NumberInput>
-                <Text fontSize="sm" color="gray.500" mt={1}>
-                  Number of days to keep request/error logs before manual cleanup
-                </Text>
-              </FormControl>
+              {/* Database Operations */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Database Operations</CardTitle>
+                  <CardDescription>Manage your data</CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-6 sm:grid-cols-2">
+                  {/* Log Cleanup */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg">Log Cleanup</CardTitle>
+                      <CardDescription>Clear old log entries</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground">
+                        Delete logs older than {isLoading ? '...' : settings.logRetentionDays} days from the database.
+                      </p>
+                      {cleanupResult && (
+                        <p className={cn("mt-2 text-sm", cleanupResult.includes("Error") ? "text-destructive" : "text-primary")}>
+                          {cleanupResult}
+                        </p>
+                      )}
+                    </CardContent>
+                    <CardFooter>
+                      <Button onClick={handleCleanupLogs} disabled={isCleaning} className="w-full">
+                        {isCleaning ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                        {isCleaning ? 'Cleaning...' : 'Clean Old Logs'}
+                      </Button>
+                    </CardFooter>
+                  </Card>
 
-              <FormControl display="flex" alignItems="center" mb={4}>
-                <FormLabel mb="0">Dark Mode</FormLabel>
-                <Switch
-                  isChecked={colorMode === 'dark'}
-                  onChange={toggleColorMode}
-                />
-             </FormControl>
+                  {/* Data Export/Import */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg">Data Backup</CardTitle>
+                      <CardDescription>Export or import system data</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Export Button */}
+                      <Button
+                        variant="outline"
+                        onClick={handleExportData}
+                        className="w-full"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Export All Data
+                      </Button>
 
-             {/* Add Cleanup Button */}
-             <Flex direction="column" mt={4}>
-               <Button
-                 colorScheme="red"
-                 variant="outline"
-                 onClick={handleCleanupLogs}
-                 isLoading={isCleaning}
-                 loadingText="Cleaning..."
-                 size="sm"
-               >
-                 Cleanup Logs Now
-               </Button>
-               {cleanupResult && (
-                 <Text fontSize="sm" color={cleanupResult.startsWith('Error:') ? 'red.500' : 'green.500'} mt={2}>
-                   {cleanupResult}
-                 </Text>
-               )}
-                <Text fontSize="xs" color="gray.500" mt={1}>
-                 Deletes log files older than the configured retention period.
-               </Text>
-             </Flex>
-
-           </CardBody>
-         </Card>
-       </SimpleGrid>
-
-       {/* Import/Export Card */}
-       <Card bg={cardBg} borderWidth="1px" borderColor={borderColor} borderRadius="lg" shadow="sm" mb={6}>
-         <CardHeader>
-           <Heading size="md">Backup & Restore Data</Heading>
-         </CardHeader>
-         <Divider borderColor={borderColor} />
-         <CardBody>
-           <SimpleGrid columns={{ base: 1, md: 2 }} gap={6}>
-             {/* Export Section */}
-             <Box>
-               <Heading size="sm" mb={2}>Backup All Data</Heading>
-               <Text fontSize="sm" color="gray.500" mb={3}>
-                 Download a JSON file containing all API Keys, Settings, and Request Log history. Useful for backups or migration.
-               </Text>
-               <Button
-                 leftIcon={<FiDownload />}
-                 colorScheme="green"
-                 variant="outline"
-                 onClick={handleExportData}
-               >
-                 Backup All Data
-               </Button>
-             </Box>
-
-             {/* Import Section */}
-             <Box>
-               <Heading size="sm" mb={2}>Restore Data from Backup</Heading>
-               <Alert status="warning" mb={3} borderRadius="md" fontSize="sm">
-                 <AlertIcon boxSize="16px" />
-                 <Box>
-                   <AlertTitle fontSize="sm">Warning!</AlertTitle>
-                   <AlertDescription>Restoring will **overwrite** all current API Keys, Settings, and Request Logs with the content from the backup file.</AlertDescription>
-                 </Box>
-               </Alert>
-               <Text fontSize="sm" color="gray.500" mb={3}>
-                 Upload a previously exported JSON backup file.
-               </Text>
-               <FormControl>
-                 <FormLabel htmlFor="import-file-input" srOnly>Select JSON file</FormLabel>
-                 <Input
-                   id="import-file-input"
-                   type="file"
-                   accept=".json"
-                   onChange={handleFileChange}
-                   mb={3}
-                   size="sm"
-                   variant="outline"
-                   p={1} // Adjust padding for file input
-                 />
-                 <Button
-                   leftIcon={<FiUpload />}
-                   colorScheme="blue"
-                   variant="outline"
-                   onClick={handleImportData}
-                   isLoading={isImporting}
-                   loadingText="Restoring..."
-                   isDisabled={!selectedFile || isImporting}
-                   size="sm"
-                 >
-                   Restore from File
-                 </Button>
-               </FormControl>
-               {importResult && (
-                 <Box mt={3} p={3} borderWidth="1px" borderRadius="md" borderColor={importResult.message.startsWith('Error:') ? 'red.300' : 'green.300'} bg={importResult.message.startsWith('Error:') ? 'red.50' : 'green.50'}>
-                   <Text fontSize="sm" fontWeight="bold" color={importResult.message.startsWith('Error:') ? 'red.600' : 'green.600'}>
-                     {importResult.message}
-                   </Text>
-                   {importResult.details && (
-                     <Text fontSize="xs" mt={1}>
-                       Keys: {importResult.details?.results?.keys ?? 'N/A'},
-                       Settings: {importResult.details?.results?.settings ?? 'N/A'},
-                       Logs: {importResult.details?.results?.logs ?? 'N/A'},
-                       Errors: {importResult.details?.results?.errors?.length ?? 0}
-                       {importResult.details?.results?.errors?.length > 0 && (
-                         <Tooltip label={importResult.details.results.errors.join('\n')} placement="top">
-                           <Text as="span" ml={1} textDecoration="underline" cursor="help">(details)</Text>
-                         </Tooltip>
-                       )}
-                     </Text>
-                   )}
-                 </Box>
-               )}
-             </Box>
-           </SimpleGrid>
-         </CardBody>
-       </Card>
-
-        <Flex justify="flex-end" mt={6}>
-          <Button
-            leftIcon={<FiSave />}
-            colorScheme="blue"
-            onClick={handleSaveSettings}
-            isLoading={isSaving}
-            loadingText="Saving..."
-          >
-            Save Settings
-          </Button>
-        </Flex>
-      {/* Removed GridItem */}
+                      {/* Import Section */}
+                      <div className="space-y-2">
+                        <Label htmlFor="import-file">Import Data (JSON)</Label>
+                        <Input
+                          id="import-file"
+                          type="file"
+                          accept=".json"
+                          onChange={handleFileChange}
+                          className="w-full"
+                        />
+                        {selectedFile && (
+                          <p className="text-xs text-muted-foreground">Selected: {selectedFile.name}</p>
+                        )}
+                        {importResult && (
+                          <p className={cn("text-sm", importResult.details?.results?.errors?.length > 0 ? "text-orange-500" : "text-primary")}>
+                            {importResult.message}
+                          </p>
+                        )}
+                      </div>
+                    </CardContent>
+                    <CardFooter>
+                      <Button
+                        disabled={!selectedFile || isImporting}
+                        onClick={handleImportData}
+                        className="w-full"
+                        variant="secondary"
+                      >
+                        {isImporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+                        {isImporting ? 'Importing...' : 'Import Data'}
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </div>
+      </TooltipProvider>
     </AppLayout>
   );
 }
-
-// Remove this duplicate card that was causing the errors

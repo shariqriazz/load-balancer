@@ -2,55 +2,364 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
-  }
-}
-
-body {
-  color: rgb(var(--foreground-rgb));
-}
-
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 8px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.25);
 }
 
 /* Dark mode scrollbar */
-@media (prefers-color-scheme: dark) {
-  ::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.05);
-  }
+.dark::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+}
 
-  ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
-  }
+.dark::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+}
 
-  ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.3);
+.dark::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    
+    /* Elegant chart colors for light mode */
+    --chart-1: 210 75% 60%; /* Blue */
+    --chart-2: 160 60% 50%; /* Teal */
+    --chart-3: 30 80% 60%;  /* Amber */
+    --chart-4: 340 60% 60%; /* Rose */
+    --chart-5: 250 60% 60%; /* Purple */
+
+    /* Gradient definitions for charts - more subtle and classy */
+    --gradient-1: linear-gradient(135deg, hsl(210 75% 60%), hsl(220 75% 55%));
+    --gradient-2: linear-gradient(135deg, hsl(160 60% 50%), hsl(170 60% 45%));
+    --gradient-3: linear-gradient(135deg, hsl(30 80% 60%), hsl(40 80% 55%));
+    --gradient-4: linear-gradient(135deg, hsl(340 60% 60%), hsl(350 60% 55%));
+    --gradient-5: linear-gradient(135deg, hsl(250 60% 60%), hsl(260 60% 55%));
+    
+    /* Radius for more rounded corners */
+    --radius: 0.75rem;
+    
+    /* Soft, elegant light theme gradient background */
+    --light-gradient: linear-gradient(135deg, hsl(210 30% 98%), hsl(220 25% 95%), hsl(230 20% 96%));
+    
+    /* Light theme subtle card gradient */
+    --light-card-gradient: linear-gradient(180deg, rgba(255, 255, 255, 1), rgba(250, 252, 255, 0.95));
+    
+    /* Light theme button gradient - subtle and elegant */
+    --light-button-gradient: linear-gradient(to right, hsl(210 100% 45%), hsl(220 100% 40%));
   }
+  
+  .dark {
+    /* Refined dark theme colors */
+    --background: 222 20% 14%; /* Rich dark blue-gray */
+    --foreground: 210 40% 98%;
+    --card: 222 22% 12%; /* Slightly darker than background */
+    --card-foreground: 210 40% 98%;
+    --popover: 222 22% 12%; /* Match card */
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 19% 24%; /* More visible secondary */
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 19% 24%; /* Match secondary */
+    --muted-foreground: 215 20.2% 70%;
+    --accent: 217.2 19% 24%; /* Match secondary */
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 19% 22%; /* Slightly darker border */
+    --input: 217.2 19% 24%; /* Match secondary */
+    --ring: 212.7 26.8% 83.9%;
+    
+    /* Elegant chart colors for dark mode */
+    --chart-1: 210 80% 65%; /* Blue */
+    --chart-2: 160 70% 55%; /* Teal */
+    --chart-3: 30 90% 65%;  /* Amber */
+    --chart-4: 340 70% 65%; /* Rose */
+    --chart-5: 250 70% 65%; /* Purple */
+
+    /* Gradient definitions for dark mode charts - more sophisticated */
+    --gradient-1: linear-gradient(135deg, hsl(210 80% 65%), hsl(220 80% 60%));
+    --gradient-2: linear-gradient(135deg, hsl(160 70% 55%), hsl(170 70% 50%));
+    --gradient-3: linear-gradient(135deg, hsl(30 90% 65%), hsl(40 90% 60%));
+    --gradient-4: linear-gradient(135deg, hsl(340 70% 65%), hsl(350 70% 60%));
+    --gradient-5: linear-gradient(135deg, hsl(250 70% 65%), hsl(260 70% 60%));
+    
+    /* Sophisticated dark theme gradient background */
+    --dark-gradient: linear-gradient(135deg, hsl(222 20% 14%), hsl(225 22% 12%), hsl(228 24% 10%));
+    
+    /* Dark theme card gradient */
+    --dark-card-gradient: linear-gradient(180deg, rgba(35, 38, 45, 0.85), rgba(30, 33, 40, 0.95));
+    
+    /* Dark theme button gradient - rich and elegant */
+    --dark-button-gradient: linear-gradient(to right, hsl(210 90% 50%), hsl(220 90% 45%));
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Apply gradient backgrounds to HTML and body in both themes */
+html {
+  min-height: 100%;
+  height: 100%;
+}
+
+body {
+  min-height: 100%;
+  background-image: var(--light-gradient);
+  background-attachment: fixed;
+  background-size: cover;
+}
+
+/* Apply the dark gradient background in dark mode */
+html.dark body {
+  background-image: var(--dark-gradient);
+  background-attachment: fixed;
+  background-size: cover;
+}
+
+/* Enhanced Card with elegant glass morphism */
+.card,
+.bg-card,
+[class*="bg-card"] {
+  background-image: var(--light-card-gradient);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  border-radius: var(--radius);
+  transition: all 0.3s ease;
+}
+
+/* Enhanced Card with elegant glass morphism in dark mode */
+.dark .card,
+.dark .bg-card,
+.dark [class*="bg-card"] {
+  background-image: var(--dark-card-gradient);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  border-radius: var(--radius);
+}
+
+/* Refined glass morphism for dialogs - light mode */
+[role="dialog"],
+.glass-effect {
+  background-color: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+/* Refined glass morphism for dialogs - dark mode */
+.dark [role="dialog"],
+.dark .glass-effect {
+  background-color: rgba(35, 38, 45, 0.85);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  border-radius: var(--radius);
+}
+
+/* Style popover and dropdown menus with refined glass morphism */
+[role="menu"],
+[role="listbox"],
+[role="tooltip"],
+[data-radix-popper-content-wrapper] * {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08) !important;
+  border-radius: var(--radius) !important;
+}
+
+.dark [role="menu"],
+.dark [role="listbox"],
+.dark [role="tooltip"],
+.dark [data-radix-popper-content-wrapper] * {
+  background-color: rgba(35, 38, 45, 0.85) !important;
+  backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25) !important;
+  border-radius: var(--radius) !important;
+}
+
+/* Force specific components to use proper backgrounds */
+.dark [data-radix-select-content],
+.dark [data-radix-popper-content],
+.dark [data-state="open"] [class*="bg-popover"],
+.dark div[role="dialog"] > div {
+  background-color: rgba(35, 38, 45, 0.85) !important;
+}
+
+[data-radix-select-content],
+[data-radix-popper-content],
+[data-state="open"] [class*="bg-popover"],
+div[role="dialog"] > div {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* Button styling with elegant gradients */
+.btn-primary,
+.button-primary {
+  background-image: var(--light-button-gradient);
+  color: white;
+  border: none;
+  border-radius: var(--radius);
+  font-weight: 500;
+  box-shadow: 0 2px 10px rgba(0, 70, 180, 0.2);
+  transition: all 0.3s ease;
+}
+
+.dark .btn-primary,
+.dark .button-primary {
+  background-image: var(--dark-button-gradient);
+  box-shadow: 0 2px 10px rgba(0, 70, 180, 0.4);
+}
+
+.btn-primary:hover,
+.button-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 70, 180, 0.3);
+}
+
+.dark .btn-primary:hover,
+.dark .button-primary:hover {
+  box-shadow: 0 4px 15px rgba(0, 70, 180, 0.5);
+}
+
+/* Card hover effects for shadcn/ui components */
+.rounded-lg.bg-card:hover,
+.card:hover,
+.hover-lift {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.dark .rounded-lg.bg-card:hover,
+.dark .card:hover,
+.dark .hover-lift {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+}
+
+/* Add hover effects for table rows */
+tr {
+  transition: all 0.2s ease;
+}
+
+tr:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  background-color: rgba(0, 0, 0, 0.02) !important;
+  z-index: 1;
+  position: relative;
+}
+
+.dark tr:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  background-color: rgba(255, 255, 255, 0.03) !important;
+}
+
+input,
+select,
+textarea {
+  background-color: rgba(255, 255, 255, 0.7) !important;
+  backdrop-filter: blur(8px) !important;
+  transition: all 0.2s ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.6) !important;
+}
+
+/* Add hover effects for interactive containers */
+.interactive-container {
+  transition: all 0.3s ease;
+}
+
+.interactive-container:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+}
+
+.dark .interactive-container:hover {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+
+/* Enhance table wrapper animations */
+div:has(> table) {
+  transition: all 0.3s ease;
+  border-radius: var(--radius);
+}
+
+div:has(> table):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+.dark div:has(> table):hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* Generic hover animation utility class */
+.hover-animate {
+  transition: all 0.3s ease;
+}
+
+.hover-animate:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+}
+
+.dark .hover-animate:hover {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
 }

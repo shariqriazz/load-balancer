@@ -1,17 +1,10 @@
-import React, { useState, useEffect } from 'react'; // Added useEffect import
-import {
-  FormControl,
-  FormLabel,
-  Input,
-  Button,
-  HStack,
-  useToast,
-  Text,
-  Box,
-  Tooltip,
-  Icon,
-} from '@chakra-ui/react';
-import { InfoIcon } from '@chakra-ui/icons';
+import React, { useState, useEffect } from 'react';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { HelpCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useToast } from "@/hooks/use-toast";
 
 interface EndpointSettingProps {
   value: string;
@@ -20,7 +13,7 @@ interface EndpointSettingProps {
 
 export const EndpointSetting: React.FC<EndpointSettingProps> = ({ value, onChange }) => {
   const [inputValue, setInputValue] = useState(value);
-  const toast = useToast();
+  const { toast } = useToast();
 
   // Update local state when prop value changes
   useEffect(() => {
@@ -36,21 +29,17 @@ export const EndpointSetting: React.FC<EndpointSettingProps> = ({ value, onChang
     try {
       // Check if it's a valid URL
       new URL(inputValue);
-      console.log('Saving endpoint:', inputValue); // Add logging
+      console.log('Saving endpoint:', inputValue);
       onChange(inputValue);
       toast({
         title: 'Endpoint updated',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
+        description: 'The API endpoint has been updated',
       });
     } catch (error) {
       toast({
         title: 'Invalid URL',
         description: 'Please enter a valid URL for the endpoint',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
+        variant: 'destructive',
       });
     }
   };
@@ -60,43 +49,51 @@ export const EndpointSetting: React.FC<EndpointSettingProps> = ({ value, onChang
     setInputValue(defaultEndpoint);
     onChange(defaultEndpoint);
     toast({
-      title: 'Endpoint reset to default',
-      status: 'info',
-      duration: 3000,
-      isClosable: true,
+      title: 'Endpoint reset',
+      description: 'Endpoint has been reset to default value',
     });
   };
 
   return (
-    <FormControl>
-      <FormLabel display="flex" alignItems="center">
-        API Endpoint
-        <Tooltip 
-          label="The base URL for the OpenAI-compatible API. The paths '/chat/completions' and '/models' will be appended to this URL."
-          placement="top"
-        >
-          <Box display="inline-block" ml={2}>
-            <Icon as={InfoIcon} color="gray.500" />
-          </Box>
-        </Tooltip>
-      </FormLabel>
-      <Input
-        value={inputValue}
-        onChange={handleChange} // Using the handleChange function defined above
-        placeholder="https://api.example.com/v1"
-        mb={2}
-      />
-      <Text fontSize="sm" color="gray.500" mb={3}>
-        Example: https://generativelanguage.googleapis.com/v1beta/openai
-      </Text>
-      <HStack>
-        <Button colorScheme="blue" onClick={handleSave}>
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <div className="flex items-center">
+          <Label htmlFor="endpoint-input">API Endpoint</Label>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <HelpCircle className="h-4 w-4 ml-2 text-muted-foreground" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="max-w-xs">
+                  The base URL for the OpenAI-compatible API. The paths '/chat/completions' 
+                  and '/models' will be appended to this URL.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+        
+        <Input
+          id="endpoint-input"
+          value={inputValue}
+          onChange={handleChange}
+          placeholder="https://api.example.com/v1"
+          className="w-full"
+        />
+        <p className="text-sm text-muted-foreground">
+          Example: https://generativelanguage.googleapis.com/v1beta/openai
+        </p>
+      </div>
+      
+      <div className="flex space-x-2">
+        <Button onClick={handleSave}>
           Save
         </Button>
         <Button variant="outline" onClick={handleReset}>
           Reset to Default
         </Button>
-      </HStack>
-    </FormControl>
+      </div>
+    </div>
   );
 };

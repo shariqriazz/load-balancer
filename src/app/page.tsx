@@ -2,7 +2,6 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Box, Spinner, Center, Text, VStack } from '@chakra-ui/react';
 
 export default function Home() {
   const router = useRouter();
@@ -17,11 +16,11 @@ export default function Home() {
   }, [router]);
 
   return (
-    <Center h="100vh">
-      <VStack spacing={4}>
-        <Spinner size="xl" color="blue.500" thickness="4px" />
-        <Text fontSize="xl">Loading Load Balancer...</Text>
-      </VStack>
-    </Center>
+    <div className="flex h-screen items-center justify-center">
+      <div className="flex flex-col items-center space-y-4">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+        <p className="text-xl">Loading Load Balancer...</p>
+      </div>
+    </div>
   );
 }
