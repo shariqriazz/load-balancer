@@ -24,7 +24,52 @@ interface Settings {
   logRetentionDays: number;
   endpoint: string;
   failoverDelay: number;
+  enableGoogleGrounding: boolean;
 }
+
+interface ApiEndpoint {
+  name: string;
+  value: string;
+  description: string;
+}
+
+const API_ENDPOINTS: ApiEndpoint[] = [
+  { 
+    name: 'Google AI Studio', 
+    value: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    description: 'Google AI for Developers, requires a Google AI API key'
+  },
+  { 
+    name: 'OpenRouter', 
+    value: 'https://openrouter.ai/api/v1',
+    description: 'Unified API platform with access to hundreds of models from multiple providers'
+  },
+  { 
+    name: 'OpenAI', 
+    value: 'https://api.openai.com/v1',
+    description: 'Standard OpenAI API endpoint for GPT models'
+  },
+  { 
+    name: 'Anthropic', 
+    value: 'https://api.anthropic.com/v1',
+    description: 'Anthropic Claude API endpoint for message-based interactions'
+  },
+  { 
+    name: 'Mistral AI', 
+    value: 'https://api.mistral.ai/v1',
+    description: 'Mistral AI API for chat completions and embeddings'
+  },
+  { 
+    name: 'Groq', 
+    value: 'https://api.groq.com/openai/v1',
+    description: 'Groq API with OpenAI-compatible interface for ultra-fast inference'
+  },
+  { 
+    name: 'Custom', 
+    value: 'custom',
+    description: 'Use a custom API endpoint URL'
+  }
+];
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings>({
@@ -34,6 +79,7 @@ export default function SettingsPage() {
     logRetentionDays: 14,
     endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai',
     failoverDelay: 2,
+    enableGoogleGrounding: false,
   });
 
   const [isLoading, setIsLoading] = useState(true);
@@ -51,15 +97,28 @@ export default function SettingsPage() {
   const [summaryStatsError, setSummaryStatsError] = useState<string | null>(null);
   const [isClient, setIsClient] = useState<boolean>(false);
 
-  const { toast } = useToast();
-  const { theme, setTheme } = useTheme();
-
   const [summaryStats, setSummaryStats] = useState({
     totalRequests: 0,
     successRate: 0,
     totalRequestsToday: 0,
     activeKeys: 0
   });
+
+  const [customEndpoint, setCustomEndpoint] = useState('');
+  const [selectedEndpoint, setSelectedEndpoint] = useState('https://generativelanguage.googleapis.com/v1beta/openai');
+
+  const { toast } = useToast();
+  const { theme, setTheme } = useTheme();
+
+  useEffect(() => {
+    const matchingEndpoint = API_ENDPOINTS.find(ep => ep.value === settings.endpoint);
+    if (matchingEndpoint) {
+      setSelectedEndpoint(matchingEndpoint.value);
+    } else {
+      setSelectedEndpoint('custom');
+      setCustomEndpoint(settings.endpoint);
+    }
+  }, [settings.endpoint]);
 
   const fetchSettings = useCallback(async () => {
     setIsLoading(true);
@@ -184,7 +243,7 @@ export default function SettingsPage() {
     }
   };
 
-  const handleInputChange = (field: keyof Settings, value: string | number) => {
+  const handleInputChange = (field: keyof Settings, value: string | number | boolean) => {
     const numericFields: (keyof Settings)[] = [
       'keyRotationRequestCount',
       'maxFailureCount',
@@ -192,7 +251,17 @@ export default function SettingsPage() {
       'logRetentionDays',
       'failoverDelay',
     ];
-    const processedValue = numericFields.includes(field) ? Number(value) : value;
+    
+    // Handle different types of values
+    let processedValue: string | number | boolean;
+    if (typeof value === 'boolean') {
+      processedValue = value; // Boolean values are used as-is
+    } else if (numericFields.includes(field)) {
+      processedValue = Number(value); // Convert to number for numeric fields
+    } else {
+      processedValue = value; // Use as-is for string fields
+    }
+    
     setSettings((prev) => ({ ...prev, [field]: processedValue }));
   };
 
@@ -505,23 +574,98 @@ export default function SettingsPage() {
                           <Input
                             id="failoverDelay"
                             type="number"
+                            min="0"
+                            max="30"
                             value={settings.failoverDelay}
-                            onChange={(e) => handleInputChange('failoverDelay', e.target.value)}
-                            className="col-span-3"
+                            onChange={(e) =>
+                              handleInputChange('failoverDelay', parseInt(e.target.value, 10))
+                            }
+                            className="col-span-3 bg-background/40 backdrop-blur-md transition-all duration-200"
                           />
+                          <div className="col-span-4 pl-[25%] ml-4 -mt-1 text-xs text-muted-foreground space-y-1">
+                            <p>Seconds to wait before switching to another API key after detecting rate limiting</p>
+                            <p>Set to 0 for immediate failover, higher values help avoid rapid key switching</p>
+                          </div>
                         </div>
                         <div className="grid items-center grid-cols-4 gap-4">
-                          <Label htmlFor="endpoint" className="text-right">
+                          <Label htmlFor="endpoint" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 transition-all duration-150 tracking-tight text-right">
                             API Endpoint
                           </Label>
-                          <Input
-                            id="endpoint"
-                            type="text"
-                            value={settings.endpoint}
-                            onChange={(e) => handleInputChange('endpoint', e.target.value)}
-                            className="col-span-3"
-                          />
+                          <div className="col-span-3 space-y-2">
+                            <Select
+                              value={selectedEndpoint}
+                              onValueChange={(value) => {
+                                setSelectedEndpoint(value);
+                                if (value !== 'custom') {
+                                  handleInputChange('endpoint', value);
+                                }
+                              }}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select an endpoint" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {API_ENDPOINTS.map((endpoint) => (
+                                  <TooltipProvider key={endpoint.value}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <div className="cursor-pointer">
+                                          <SelectItem value={endpoint.value}>
+                                            {endpoint.name}
+                                          </SelectItem>
+                                        </div>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="right" className="max-w-md">
+                                        <p>{endpoint.description}</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {selectedEndpoint === 'custom' && (
+                              <Input
+                                id="custom-endpoint"
+                                type="text"
+                                value={customEndpoint}
+                                onChange={(e) => {
+                                  setCustomEndpoint(e.target.value);
+                                  handleInputChange('endpoint', e.target.value);
+                                }}
+                                placeholder="https://api.example.com/v1"
+                                className="mt-2"
+                              />
+                            )}
+                            <div className="mt-2 text-xs text-muted-foreground space-y-1">
+                              <p>Select a pre-configured endpoint or choose 'Custom' to enter your own</p>
+                              {selectedEndpoint !== 'custom' && API_ENDPOINTS.find(e => e.value === selectedEndpoint)?.description && (
+                                <p className="font-medium">{API_ENDPOINTS.find(e => e.value === selectedEndpoint)?.description}</p>
+                              )}
+                            </div>
+                          </div>
                         </div>
+                        
+                        {/* Google Search Grounding toggle - only enabled for Google endpoint */}
+                        {settings.endpoint.includes('generativelanguage.googleapis.com') && (
+                          <div className="grid items-center grid-cols-4 gap-4">
+                            <Label htmlFor="enableGoogleGrounding" className="text-right">
+                              Google Search Grounding
+                            </Label>
+                            <div className="col-span-3 flex items-center space-x-2">
+                              <Switch
+                                id="enableGoogleGrounding"
+                                checked={settings.enableGoogleGrounding}
+                                onCheckedChange={(checked) => handleInputChange('enableGoogleGrounding', checked)}
+                              />
+                              <span>
+                                {settings.enableGoogleGrounding ? 'Enabled' : 'Disabled'}
+                              </span>
+                              <div className="ml-6 text-xs text-muted-foreground">
+                                <p>Uses Google Search to enhance responses with up-to-date information</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

@@ -41,10 +41,14 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Fetch settings to get maxRetries and endpoint
+  // Fetch settings to get maxRetries, endpoint, and grounding settings
   const settings = await readSettings();
   const maxRetries = settings.maxRetries || 3;
   const baseEndpoint = settings.endpoint || 'https://generativelanguage.googleapis.com/v1beta/openai';
+  const enableGoogleGrounding = settings.enableGoogleGrounding || false;
+  
+  // Check if using Google API and grounding is enabled
+  const isGoogleAPI = baseEndpoint.includes('generativelanguage.googleapis.com');
   
   console.log('Using endpoint for chat completions:', baseEndpoint);
 
@@ -103,6 +107,31 @@ export async function POST(req: NextRequest) {
           'Authorization': `Bearer ${currentKeyValue}`,
         }
       };
+      
+      // Modify the request body to include Google Search grounding if enabled
+      if (isGoogleAPI && enableGoogleGrounding && body) {
+        // Create a deep copy of the body to avoid mutating the original
+        const modifiedBody = JSON.parse(JSON.stringify(body));
+        
+        // Add tools array with Google Search grounding if not already present
+        if (!modifiedBody.tools) {
+          modifiedBody.tools = [
+            {
+              "googleSearchRetrieval": {
+                "dynamicRetrievalConfig": {
+                  "mode": "MODE_DYNAMIC",
+                  "dynamicThreshold": 0.7 // Default threshold value
+                }
+              }
+            }
+          ];
+          
+          // Replace the original body with the modified one
+          body = modifiedBody;
+          
+          console.log('Added Google Search grounding to request');
+        }
+      }
 
       // Add responseType: 'stream' for streaming requests
       if (isStreaming) {
@@ -120,6 +149,16 @@ export async function POST(req: NextRequest) {
 
       // Log successful response
       const responseTime = Date.now() - startTime;
+      
+      // Log Google Search grounding usage in successful responses
+      if (isGoogleAPI && enableGoogleGrounding) {
+        requestLogger.info('Used Google Search grounding', {
+          requestId,
+          model: body?.model,
+          responseTime
+        });
+      }
+      
       // Log success to DB
       await RequestLog.create({
         apiKeyId: apiKeyIdForAttempt, // Use the ID from this attempt
