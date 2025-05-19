@@ -167,7 +167,6 @@ export async function PUT(
       // If the limit is removed or set to 0, ensure the key isn't disabled by the limit anymore
       if (validatedRateLimit === null || validatedRateLimit === 0) {
           key.isDisabledByRateLimit = false;
-          key.isDisabledByRateLimit = false;
       }
     }
 

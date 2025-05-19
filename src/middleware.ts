@@ -55,7 +55,6 @@ export async function middleware(request: NextRequest) {
     if (!session.isLoggedIn) {
       // Store the intended destination to redirect after login
       const loginUrl = new URL('/login', request.url);
-      // loginUrl.searchParams.set('redirect', pathname);
       return NextResponse.redirect(loginUrl);
     }
   }

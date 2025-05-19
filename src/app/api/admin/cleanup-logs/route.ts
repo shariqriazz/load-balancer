@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
 import { readSettings } from '@/lib/settings'; // Import readSettings from lib
-import { logError, logKeyEvent } from '@/lib/services/logger'; // Use logKeyEvent for now
+import { logError, logKeyEvent } from '@/lib/services/logger';
 
 // Function to parse date from log filename (similar to stats route)
 function parseDateFromFilename(filename: string): Date | null {
