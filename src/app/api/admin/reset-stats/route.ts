@@ -17,12 +17,18 @@ export async function POST() {
         UPDATE api_keys 
         SET requestCount = 0, 
             dailyRequestsUsed = 0, 
+            failureCount = 0,
             lastResetDate = ?
       `, new Date().toISOString());
       
-      // Optionally: Clear request logs (but keep them in the database for reference)
-      // Uncomment if you want to delete logs from the database:
-      // await db.run('DELETE FROM request_logs');
+      // Clear recent logs (last 24 hours) while keeping older logs for historical reference
+      const oneDayAgo = new Date();
+      oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+      
+      await db.run(`
+        DELETE FROM request_logs 
+        WHERE timestamp > ?
+      `, oneDayAgo.toISOString());
       
       // Update key counts and status
       const updatedKeysCount = await db.get('SELECT COUNT(*) as count FROM api_keys');
