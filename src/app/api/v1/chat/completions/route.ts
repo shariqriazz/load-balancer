@@ -115,20 +115,42 @@ export async function POST(req: NextRequest) {
       if (isGoogleAPI && enableGoogleGrounding) {
         // Add tools array with Google Search grounding if not already present
         if (!requestBody.tools) {
-          // Add the proper tools configuration for Google
-          requestBody.tools = [
-            {
-              "type": "googleSearchRetrieval"
-            }
-          ];
-          
-          // Also add tool_choice parameter if not already set
-          if (!requestBody.tool_choice) {
-            requestBody.tool_choice = "auto";
-          }
-          
-          console.log('Added Google Search grounding to request:', JSON.stringify(requestBody.tools));
+          requestBody.tools = [];
         }
+
+        // Check if grounding is already requested
+        const isGroundingRequested = requestBody.tools.some((tool: any) => 
+          tool.googleSearchRetrieval || tool.googleSearch
+        );
+
+        // For Gemini models, we don't need to explicitly add the search tool
+        // as it's handled implicitly by the model
+        const isGeminiModel = requestBody.model?.includes('gemini');
+        
+        if (isGeminiModel) {
+          console.log('Gemini model detected - search grounding handled implicitly by the model');
+          // Clear any existing tools as they're not needed for Gemini
+          requestBody.tools = [];
+        } else {
+          // For non-Gemini models (like older Vertex AI models)
+          if (isGroundingRequested && requestBody.tools.length > 1) {
+            console.warn("Grounding requested with other tools; keeping only search.");
+            requestBody.tools = requestBody.tools.filter((tool: any) => 
+              tool.googleSearchRetrieval || tool.googleSearch
+            );
+          }
+
+          // If no grounding tool is present, add googleSearchRetrieval
+          if (!isGroundingRequested) {
+            requestBody.tools = [{
+              "googleSearchRetrieval": {}
+            }];
+            console.log('Added Google Search grounding for non-Gemini model:', JSON.stringify(requestBody.tools));
+          }
+        }
+        
+        // Always set tool_choice to auto when using grounding
+        requestBody.tool_choice = "auto";
       }
 
       // Add responseType: 'stream' for streaming requests
