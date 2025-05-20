@@ -86,6 +86,21 @@ export default function KeyStats() {
   const [isDeletingBulk, setIsDeletingBulk] = useState(false);
   const { toast } = useToast();
 
+  const formatKeyForDisplay = (key: any): JSX.Element | string => {
+    if (!key) return <span className="text-muted-foreground italic">N/A</span>;
+    
+    // Convert to string if it's an object
+    const keyStr = typeof key === 'object' ? String(key) : key;
+    
+    // Check if it's now a valid string we can work with
+    if (typeof keyStr === 'string' && keyStr.length > 10) {
+      return `${keyStr.substring(0, 10)}...${keyStr.substring(keyStr.length - 4)}`;
+    }
+    
+    // If it's too short or not a proper string
+    return keyStr || <span className="text-muted-foreground italic">N/A</span>;
+  };
+
   const fetchKeys = async () => {
     setIsLoading(true);
     try {
@@ -274,7 +289,7 @@ export default function KeyStats() {
       }
       
       const response = await fetch(`/api/admin/keys/${editingKey._id}`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -290,9 +305,18 @@ export default function KeyStats() {
         throw new Error(errorData.error || 'Failed to update key');
       }
       
-      const updatedKey = await response.json();
+      const responseData = await response.json();
+      let updatedKey = responseData.key || {};
       
-      setKeys(keys.map(key => key._id === editingKey._id ? updatedKey : key));
+      // Ensure the key has all required properties
+      updatedKey = {
+        ...editingKey, // Keep original properties as a base
+        ...updatedKey,  // Override with the updates
+      };
+      
+      setKeys(keys.map(key => 
+        key._id === editingKey._id ? updatedKey : key
+      ));
       
       toast({
         title: 'Key updated',
@@ -352,9 +376,8 @@ export default function KeyStats() {
         },
         body: JSON.stringify({
           keyIds: Array.from(selectedKeyIds),
-          update: {
-            dailyRateLimit: rateLimit,
-          }
+          action: "setLimit",
+          dailyRequestLimit: rateLimit
         }),
       });
       
@@ -367,7 +390,7 @@ export default function KeyStats() {
       
       toast({
         title: 'Keys updated',
-        description: `Updated ${result.updatedCount} keys with new daily rate limit`,
+        description: `Updated ${result.count || 0} keys with new daily rate limit`,
       });
       
       fetchKeys();
@@ -399,6 +422,7 @@ export default function KeyStats() {
         },
         body: JSON.stringify({
           keyIds: Array.from(selectedKeyIds),
+          action: "delete"
         }),
       });
       
@@ -527,7 +551,7 @@ export default function KeyStats() {
                     />
                   </TableCell>
                   <TableCell>{key.name || <span className="text-muted-foreground italic">N/A</span>}</TableCell>
-                  <TableCell className="font-mono">{`${key.key.substring(0, 10)}...${key.key.substring(key.key.length - 4)}`}</TableCell>
+                  <TableCell className="font-mono">{formatKeyForDisplay(key.key)}</TableCell>
                   <TableCell>{getStatusBadge(key)}</TableCell>
                   <TableCell>{formatDate(key.lastUsed)}</TableCell>
                   <TableCell>{key.dailyRequestsUsed} / {(key.dailyRateLimit === null || key.dailyRateLimit === undefined) ? '∞' : key.dailyRateLimit}</TableCell>
