@@ -38,6 +38,10 @@ export async function POST(request: NextRequest) {
       endpoint: validateString(body.endpoint, currentSettings.endpoint),
       failoverDelay: validateNumber(body.failoverDelay, currentSettings.failoverDelay, 0, 60),
       enableGoogleGrounding: typeof body.enableGoogleGrounding === 'boolean' ? body.enableGoogleGrounding : currentSettings.enableGoogleGrounding,
+      loadBalancingStrategy: body.loadBalancingStrategy && ['round-robin', 'random', 'least-connections'].includes(body.loadBalancingStrategy)
+        ? body.loadBalancingStrategy
+        : currentSettings.loadBalancingStrategy,
+      requestRateLimit: validateNumber(body.requestRateLimit, currentSettings.requestRateLimit, 0, 1000),
     };
 
     console.log('Saving settings:', newSettings);
