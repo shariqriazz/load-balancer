@@ -22,3 +22,4 @@ bun.lock
 .next
 /.history
 package-lock.json
+/docs

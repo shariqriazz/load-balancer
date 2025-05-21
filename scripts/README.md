@@ -10,6 +10,8 @@ The `migrate-settings.ts` script updates your database settings to include the n
 
 ```bash
 bun run scripts/migrate-settings.ts
+# OR using Yarn
+yarn tsx scripts/migrate-settings.ts
 ```
 
 This script will:
@@ -25,6 +27,8 @@ The `import-data.ts` script allows importing data from a JSON file export, inclu
 
 ```bash
 bun run scripts/import-data.ts path/to/your/export-file.json
+# OR using Yarn
+yarn tsx scripts/import-data.ts path/to/your/export-file.json
 ```
 
 This script supports importing:

@@ -8,7 +8,16 @@
     "build": "bun run next build",
     "lint": "bun run next lint",
     "migrate:db": "bunx tsx scripts/migrate-json-to-db.js",
-    "generate:env": "bunx tsx scripts/generate-env.js"
+    "generate:env": "bunx tsx scripts/generate-env.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "yarn:dev": "yarn next dev",
+    "yarn:start": "yarn next start",
+    "yarn:build": "yarn next build",
+    "yarn:lint": "yarn next lint",
+    "yarn:migrate:db": "yarn tsx scripts/migrate-json-to-db.js",
+    "yarn:generate:env": "yarn tsx scripts/generate-env.js"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.11",
@@ -44,13 +53,24 @@
     "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/jest": "^29.5.14",
+    "@types/mock-fs": "^4.13.4",
     "@types/node": "^20.11.5",
     "@types/react": "^18.2.48",
     "autoprefixer": "^10.4.17",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "mock-fs": "^5.5.0",
     "next": "^14.2.26",
+    "node-fetch": "^2.7.0",
     "postcss": "^8.4.33",
     "tailwindcss": "^3.4.1",
+    "ts-jest": "^29.3.4",
     "tsx": "^4.19.3",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "undici": "^7.10.0"
   }
 }

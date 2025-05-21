@@ -141,10 +141,13 @@ For optimal performance and reliability, we recommend the following configuratio
 Development mode with hot reloading:
 
 ```bash
-# Using Bun
+# Using Bun (runs on port 4270 by default)
 bun dev
 # OR (using explicit run command)
 # bun run dev
+
+# Using Yarn (runs on default Next.js port, usually 3000)
+yarn yarn:dev
 ```
 
 Production deployment:
@@ -155,13 +158,20 @@ bun build
 # OR (using explicit run command)
 # bun run build
 
+# OR using Yarn
+yarn yarn:build
+
 # Start the production server
+# Using Bun (runs on port 4270 by default)
 bun start
 # OR (using explicit run command)
 # bun run start
+
+# OR using Yarn (runs on default Next.js port, usually 3000)
+yarn yarn:start
 ```
 
-The application will be available at http://localhost:4270 (or your configured PORT)
+The application will be available at http://localhost:4270 (for Bun) or http://localhost:3000 (for Yarn, or your configured PORT if different).
 
 Using PM2 for process management:
 
@@ -252,6 +262,9 @@ This version requires additional dependencies for SQLite database support. Insta
 # Using Bun (recommended)
 bun install
 
+# OR using Yarn
+yarn install
+
 # OR using npm
 npm install --legacy-peer-deps
 ```
@@ -263,8 +276,13 @@ Now you need to migrate your existing data from JSON files to the SQLite databas
 ```bash
 # Using Bun
 bun scripts/migrate-json-to-db.js
+# OR (using package.json script)
+bun migrate:db
 
-# OR using Node.js
+# OR using Yarn
+yarn yarn:migrate:db
+
+# OR using Node.js (direct execution)
 node scripts/migrate-json-to-db.js
 ```
 
@@ -283,10 +301,17 @@ After successful migration, start the application as usual:
 ```bash
 # Development mode
 bun dev
+# OR
+yarn yarn:dev
 
 # OR production mode
+# Using Bun
 bun build
 bun start
+# OR
+# Using Yarn
+yarn yarn:build
+yarn yarn:start
 ```
 
 The application will automatically use the database for all operations. The original JSON files will not be modified or deleted, but they will no longer be used.

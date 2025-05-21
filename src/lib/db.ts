@@ -18,6 +18,8 @@ export interface Settings {
   endpoint: string; // Add the endpoint field
   failoverDelay: number; // seconds - Delay before switching API on rate limited (0 for immediate)
   enableGoogleGrounding: boolean; // Enable Google search grounding for Google provider
+  loadBalancingStrategy: 'round-robin' | 'random' | 'least-connections'; // Added
+  requestRateLimit: number; // Added: requests per minute, 0 for no limit
 }
 
 // Define DEFAULT_SETTINGS with the endpoint field
@@ -30,6 +32,8 @@ export const DEFAULT_SETTINGS: Settings = {
   endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai', // Default endpoint
   failoverDelay: 2, // 2 seconds default delay before switching API on rate limited
   enableGoogleGrounding: false, // Default: Google search grounding disabled
+  loadBalancingStrategy: 'round-robin', // Added
+  requestRateLimit: 0, // Added: 0 means no limit by default
 };
 
 let dbInstance: Database | null = null;

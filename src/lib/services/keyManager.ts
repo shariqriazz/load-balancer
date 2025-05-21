@@ -280,29 +280,42 @@ class KeyManager {
 
       // --- Check 1: Is there a current key? ---
       if (this.currentKey) {
-        // --- Check 2: Does the current key need daily reset? ---
+        // --- Check 2: Perform daily reset for the current key FIRST ---
         const lastReset = this.currentKey.lastResetDate ? new Date(this.currentKey.lastResetDate) : null;
         if (!lastReset || !isSameLocalDay(lastReset, now)) {
           logKeyEvent('Daily Limit Reset (getKey)', { keyId: this.currentKey._id, date: todayLocalString });
           this.currentKey.dailyRequestsUsed = 0;
-          this.currentKey.isDisabledByRateLimit = false; // Ensure re-enabled
+          this.currentKey.isDisabledByRateLimit = false; // Ensure re-enabled *before* other checks
           this.currentKey.lastResetDate = now.toISOString();
           await this.currentKey.save(); // Save the reset state
         }
 
-        // --- Check 3: Is the current key globally rate-limited? ---
+        // --- Check 3: Is the current key (potentially after reset) globally rate-limited? ---
         const globalResetTime = this.currentKey.rateLimitResetAt ? new Date(this.currentKey.rateLimitResetAt) : null;
         if (globalResetTime && globalResetTime > now) {
           // Globally rate-limited, force rotation
           logKeyEvent('Global Rate Limit Active (getKey)', { keyId: this.currentKey._id, resetTime: this.currentKey.rateLimitResetAt });
           this.currentKey = null; // Clear the invalid key
           // Fall through to rotateKey below
-        } else {
-           // --- Check 4: Is the current key daily rate-limited? ---
+        } else if (this.currentKey.isDisabledByRateLimit) {
+          // --- Check 4a: Was it disabled by a daily limit that wasn't reset (shouldn't happen if reset logic is correct)? ---
+          // This case implies it was disabled by daily limit, and the daily reset above didn't clear it.
+          // This might indicate an issue or a specific scenario where it remains disabled.
+          // For safety, if it's still marked as disabled by rate limit, force rotation.
+          logKeyEvent('Persistently Daily Rate Limited (getKey)', {
+            keyId: this.currentKey._id,
+            dailyRequestsUsed: this.currentKey.dailyRequestsUsed,
+            dailyRateLimit: this.currentKey.dailyRateLimit
+          });
+          this.currentKey = null; // Clear the invalid key
+          // Fall through to rotateKey below
+        }
+        else {
+           // --- Check 4b: Is the current key (active and not globally/daily limited yet) about to hit its daily rate limit? ---
            const limit = this.currentKey.dailyRateLimit;
            // Ensure limit is a positive number before checking usage
            if (typeof limit === 'number' && limit > 0 && this.currentKey.dailyRequestsUsed >= limit) {
-             // Daily limit reached, disable and force rotation
+             // Daily limit reached *now*, disable and force rotation
              logKeyEvent('Daily Rate Limit Hit (getKey)', {
                keyId: this.currentKey._id,
                dailyRequestsUsed: this.currentKey.dailyRequestsUsed,
