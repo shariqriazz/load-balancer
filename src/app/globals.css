@@ -312,6 +312,7 @@ textarea {
   background-color: rgba(255, 255, 255, 0.7) !important;
   backdrop-filter: blur(8px) !important;
   transition: all 0.2s ease;
+  color: #000000 !important; /* Force black text color */
 }
 
 input:focus,
@@ -362,4 +363,11 @@ div:has(> table):hover {
 
 .dark .hover-animate:hover {
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+
+/* Specific styling for dialog input fields */
+[role="dialog"] input,
+[role="dialog"] select,
+[role="dialog"] textarea {
+  color: #000000 !important; /* Force black text color in dialogs */
 }

@@ -416,7 +416,7 @@ export default function KeyStats() {
     
     try {
       const response = await fetch('/api/admin/keys/bulk', {
-        method: 'DELETE',
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -435,7 +435,7 @@ export default function KeyStats() {
       
       toast({
         title: 'Keys deleted',
-        description: `Successfully deleted ${result.deletedCount} keys`,
+        description: `Successfully deleted ${result.count} keys`,
       });
       
       setSelectedKeyIds(new Set());
