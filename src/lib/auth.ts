@@ -12,10 +12,10 @@ export async function validateSession(): Promise<{ isValid: boolean; session: Se
     
     // Comprehensive session validation with password hash check
     const currentPasswordHash = getPasswordHash();
-    const isValid = session.isLoggedIn && 
-                   session.passwordHash === currentPasswordHash &&
-                   session.loginTime &&
-                   (Date.now() - session.loginTime) < (7 * 24 * 60 * 60 * 1000); // 7 days max
+    const isValid = !!(session.isLoggedIn && 
+                      session.passwordHash === currentPasswordHash &&
+                      session.loginTime &&
+                      (Date.now() - session.loginTime) < (7 * 24 * 60 * 60 * 1000)); // 7 days max
 
     return { isValid, session };
   } catch (error) {
@@ -30,14 +30,13 @@ export async function validateSession(): Promise<{ isValid: boolean; session: Se
 export async function requireAuth(): Promise<{ authorized: boolean; session: SessionData }> {
   const { isValid, session } = await validateSession();
   
-  if (!isValid) {
-    // Clear invalid session
-    if (session.isLoggedIn) {
-      session.isLoggedIn = false;
-      session.loginTime = undefined;
-      session.passwordHash = undefined;
-      await session.save();
-    }
+  if (!isValid && session.isLoggedIn) {
+    // Clear invalid session by getting a fresh session object
+    const freshSession = await getIronSession<SessionData>(cookies(), sessionOptions);
+    freshSession.isLoggedIn = false;
+    freshSession.loginTime = undefined;
+    freshSession.passwordHash = undefined;
+    await freshSession.save();
   }
   
   return { authorized: isValid, session };

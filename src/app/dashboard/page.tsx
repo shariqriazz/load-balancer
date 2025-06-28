@@ -20,7 +20,7 @@ import {
   AlertDescription,
   AlertTitle,
 } from "@/components/ui/alert";
-import { Activity, Key, Cpu, AlertCircle, RefreshCw, AlertTriangle, Loader2 } from 'lucide-react';
+import { Activity, Key, Cpu, AlertCircle, RefreshCw, AlertTriangle, Loader2, Users, ArrowRight } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import KeyStats from '@/components/keys/KeyStats';
 import { useToast } from "@/hooks/use-toast";
@@ -138,6 +138,25 @@ export default function Dashboard() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Quick Actions */}
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => window.location.href = '/keys'}
+              className="hidden sm:flex"
+            >
+              <Key className="h-4 w-4 mr-2" />
+              Add Keys
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => window.location.href = '/profiles'}
+              className="hidden md:flex"
+            >
+              <Users className="h-4 w-4 mr-2" />
+              Profiles
+            </Button>
             <Select value={timeRange} onValueChange={setTimeRange}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Select time range" />
@@ -253,6 +272,35 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Profiles Overview */}
+            <Card className="border-0 shadow-lg interactive-container hover-animate">
+              <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--primary)/0.05)] via-transparent to-[hsl(var(--secondary)/0.05)] pointer-events-none" />
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="h-5 w-5" />
+                      Profile Overview
+                    </CardTitle>
+                    <CardDescription>API key organization and load balancing profiles</CardDescription>
+                  </div>
+                  <Button variant="outline" onClick={() => window.location.href = '/profiles'}>
+                    Manage Profiles
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* This will be populated with profile data */}
+                  <div className="text-center text-muted-foreground py-8">
+                    <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">Profile data loading...</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
             <Card className="border-0 shadow-lg interactive-container hover-animate">
               <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--primary)/0.05)] via-transparent to-[hsl(var(--secondary)/0.05)] pointer-events-none" />
