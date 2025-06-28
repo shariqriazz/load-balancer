@@ -126,6 +126,10 @@ export class ApiKey implements ApiKeyData {
         whereClause += ' AND isDisabledByRateLimit = ?';
         params.push(booleanToDb(query.isDisabledByRateLimit));
     }
+    if (query.profile !== undefined) {
+        whereClause += ' AND profile = ?';
+        params.push(query.profile);
+    }
     // Handle the $or condition for rateLimitResetAt specifically for keyManager usage
     if ((query as any).$or && Array.isArray((query as any).$or)) {
         const orConditions = (query as any).$or as any[];

@@ -130,12 +130,15 @@ export async function DELETE(
 
     const db = await getDb();
 
-    // Check if profile has keys
-    const keysInProfile = await ApiKey.findAll({ profile: profileName });
+    // Check if profile has keys (handle both empty string and null cases)
+    const keyCount = await db.get(
+      `SELECT COUNT(*) as count FROM api_keys WHERE profile = ? OR (profile IS NULL AND ? = 'default') OR (profile = '' AND ? = 'default')`,
+      profileName, profileName, profileName
+    );
     
-    if (keysInProfile.length > 0) {
+    if (keyCount && keyCount.count > 0) {
       return NextResponse.json(
-        { error: `Cannot delete profile with ${keysInProfile.length} keys. Move or delete keys first.` },
+        { error: `Cannot delete profile with ${keyCount.count} keys. Move or delete keys first.` },
         { status: 409 }
       );
     }
