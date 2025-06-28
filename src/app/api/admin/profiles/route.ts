@@ -8,7 +8,7 @@ export async function GET() {
   try {
     const db = await getDb();
     
-    // Get all profiles with key counts and statistics
+    // Get all profiles with key counts and statistics from api_keys table
     const profileStats = await db.all(`
       SELECT 
         COALESCE(profile, 'default') as name,
@@ -25,41 +25,60 @@ export async function GET() {
       ORDER BY name
     `);
 
-    // Get profile descriptions from a profiles table (we'll create this)
+    // Get profile metadata from profiles table
     let profileDescriptions: Record<string, { description: string; color: string; icon: string }> = {};
+    let allProfileNames = new Set<string>();
+    
     try {
       const descriptions = await db.all(`
         SELECT name, description, color, icon 
         FROM profiles 
         ORDER BY name
       `);
-      profileDescriptions = descriptions.reduce((acc: any, row: any) => {
-        acc[row.name] = {
+      
+      descriptions.forEach((row: any) => {
+        allProfileNames.add(row.name);
+        profileDescriptions[row.name] = {
           description: row.description || '',
           color: row.color || '#6366f1',
           icon: row.icon || 'key'
         };
-        return acc;
-      }, {});
+      });
     } catch (error) {
       // Profiles table doesn't exist yet, that's okay
     }
 
-    const profiles = profileStats.map((stat: any) => ({
-      name: stat.name,
-      description: profileDescriptions[stat.name]?.description || '',
-      color: profileDescriptions[stat.name]?.color || '#6366f1',
-      icon: profileDescriptions[stat.name]?.icon || 'key',
-      keyCount: stat.keyCount,
-      activeKeys: stat.activeKeys,
-      rateLimitedKeys: stat.rateLimitedKeys,
-      inactiveKeys: stat.inactiveKeys,
-      totalRequests: stat.totalRequests || 0,
-      dailyRequestsUsed: stat.dailyRequestsUsed || 0,
-      avgDailyLimit: stat.avgDailyLimit ? Math.round(stat.avgDailyLimit) : null,
-      lastUsed: stat.lastUsed,
-      isDefault: stat.name === 'default'
-    }));
+    // Add profiles from api_keys to the set
+    profileStats.forEach((stat: any) => {
+      allProfileNames.add(stat.name);
+    });
+
+    // Create profile objects for all profiles (both with and without keys)
+    const profiles = Array.from(allProfileNames).map(profileName => {
+      const stat = profileStats.find((s: any) => s.name === profileName);
+      const metadata = profileDescriptions[profileName];
+      
+      return {
+        name: profileName,
+        description: metadata?.description || '',
+        color: metadata?.color || '#6366f1',
+        icon: metadata?.icon || 'key',
+        keyCount: stat?.keyCount || 0,
+        activeKeys: stat?.activeKeys || 0,
+        rateLimitedKeys: stat?.rateLimitedKeys || 0,
+        inactiveKeys: stat?.inactiveKeys || 0,
+        totalRequests: stat?.totalRequests || 0,
+        dailyRequestsUsed: stat?.dailyRequestsUsed || 0,
+        avgDailyLimit: stat?.avgDailyLimit ? Math.round(stat.avgDailyLimit) : null,
+        lastUsed: stat?.lastUsed || null,
+        isDefault: profileName === 'default'
+      };
+    }).sort((a, b) => {
+      // Sort: default first, then by name
+      if (a.isDefault) return -1;
+      if (b.isDefault) return 1;
+      return a.name.localeCompare(b.name);
+    });
 
     return NextResponse.json(profiles);
   } catch (error: any) {
