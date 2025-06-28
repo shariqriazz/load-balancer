@@ -24,3 +24,5 @@ bun.lock
 package-lock.json
 /docs
 tsconfig.tsbuildinfo
+atlassian-rovo-source-code-z80-dump/
+.agent.md

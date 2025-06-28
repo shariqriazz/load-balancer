@@ -28,6 +28,19 @@ export const config = {
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
+  // Handle CORS preflight requests for API routes
+  if (request.method === 'OPTIONS' && pathname.startsWith('/api/')) {
+    return new NextResponse(null, {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Profile',
+        'Access-Control-Max-Age': '86400',
+      },
+    });
+  }
+
   // Check if the path is public
   const isPublicPath = publicPaths.some(path => pathname.startsWith(path));
  

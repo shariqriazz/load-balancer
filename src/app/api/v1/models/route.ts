@@ -4,6 +4,7 @@ import axios from 'axios';
 import keyManager from '@/lib/services/keyManager';
 import { logError } from '@/lib/services/logger';
 import { readSettings } from '@/lib/settings';
+import { ROVODEV_MODELS } from '@/lib/services/providers/rovodev';
 
 export async function GET(req: NextRequest) {
   const maxRetries = 3;
@@ -38,7 +39,24 @@ export async function GET(req: NextRequest) {
 
       await keyManager.markKeySuccess();
 
-      return NextResponse.json(response.data);
+      // Add RovoDev models to the response
+      const responseData = response.data;
+      if (responseData && responseData.data && Array.isArray(responseData.data)) {
+        // Add RovoDev models to the list
+        const rovodevModels = ROVODEV_MODELS.map(model => ({
+          id: model,
+          object: 'model',
+          created: Date.now(),
+          owned_by: 'atlassian-rovodev',
+          permission: [],
+          root: model,
+          parent: null
+        }));
+
+        responseData.data = [...responseData.data, ...rovodevModels];
+      }
+
+      return NextResponse.json(responseData);
 
     } catch (error: any) {
       const isRateLimit = await keyManager.markKeyError(error);

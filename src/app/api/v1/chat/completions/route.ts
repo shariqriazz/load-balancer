@@ -1,11 +1,118 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import keyManager from '@/lib/services/keyManager';
+import rovodevKeyManager from '@/lib/services/rovodevKeyManager';
 import { logError, requestLogger } from '@/lib/services/logger';
 import { readSettings } from '@/lib/settings';
 import { v4 as uuidv4 } from 'uuid';
 import { RequestLog } from '@/lib/models/RequestLog';
 import { LoadBalancer } from '@/lib/services/loadBalancer';
+import { ROVODEV_MODELS } from '@/lib/services/providers/rovodev';
+
+// Check if a model is a RovoDev model
+function isRovoDevModel(model: string): boolean {
+  return ROVODEV_MODELS.includes(model as any);
+}
+
+// Handle RovoDev requests
+async function handleRovoDevRequest(
+  requestBody: any,
+  profile: string,
+  requestId: string,
+  startTime: number,
+  ipAddress: string | null
+): Promise<NextResponse> {
+  try {
+    // Get the best available RovoDev key for this profile
+    const rovoDevKey = await rovodevKeyManager.getBestKey(profile);
+    
+    if (!rovoDevKey) {
+      throw new Error('No available RovoDev keys for this profile');
+    }
+
+    // Make the request using RovoDev provider
+    const provider = rovodevKeyManager.getProvider();
+    const response = await provider.makeChatRequest(
+      rovoDevKey,
+      requestBody.model,
+      requestBody.messages,
+      {
+        stream: requestBody.stream,
+        temperature: requestBody.temperature,
+        max_tokens: requestBody.max_tokens,
+        top_p: requestBody.top_p
+      }
+    );
+
+    // Log successful response
+    const responseTime = Date.now() - startTime;
+    
+    await RequestLog.create({
+      apiKeyId: rovoDevKey._id,
+      statusCode: 200,
+      isError: false,
+      modelUsed: requestBody.model,
+      responseTime: responseTime,
+      inputTokens: response.usage?.prompt_tokens || 0,
+      outputTokens: response.usage?.completion_tokens || 0,
+      totalTokens: response.usage?.total_tokens || 0,
+      ipAddress: ipAddress
+    }).catch(dbError => logError(dbError, { context: 'RequestLog DB Write Error' }));
+
+    return NextResponse.json(response);
+  } catch (error: any) {
+    logError(error, {
+      context: 'RovoDev request handling',
+      requestId,
+      model: requestBody.model,
+      profile
+    });
+
+    // Log error to DB
+    const responseTime = Date.now() - startTime;
+    await RequestLog.create({
+      apiKeyId: 'rovodev-error',
+      statusCode: 500,
+      isError: true,
+      errorType: 'RovoDevError',
+      errorMessage: error.message,
+      modelUsed: requestBody.model,
+      responseTime: responseTime,
+      ipAddress: ipAddress
+    }).catch(dbError => logError(dbError, { context: 'RequestLog DB Write Error' }));
+
+    // Return appropriate error response
+    if (error.message.includes('Unauthorized')) {
+      return NextResponse.json(
+        { error: { message: 'RovoDev authentication failed', type: 'authentication_error' } },
+        { status: 401 }
+      );
+    }
+    if (error.message.includes('Daily token limit exceeded')) {
+      return NextResponse.json(
+        { error: { message: 'Daily token limit exceeded for RovoDev', type: 'rate_limit_error' } },
+        { status: 429 }
+      );
+    }
+    if (error.message.includes('Context limit exceeded')) {
+      return NextResponse.json(
+        { error: { message: 'Request too large for RovoDev', type: 'context_length_exceeded' } },
+        { status: 413 }
+      );
+    }
+
+    return NextResponse.json(
+      { 
+        error: { 
+          message: 'RovoDev service temporarily unavailable. The API endpoints are being reverse-engineered and may not be fully functional yet.', 
+          type: 'service_error',
+          details: error.message
+        } 
+      },
+      { status: 500 }
+    );
+  }
+}
 
 // Tool extraction function to convert XML-style tools to OpenAI format
 function extractToolsFromSystemMessage(systemContent: string): any[] {
@@ -300,6 +407,28 @@ export async function POST(req: NextRequest) {
   
   // Create a copy of the original body to use for the request - moved outside of try block
   let requestBody = JSON.parse(JSON.stringify(body));
+
+  // Check if this is a RovoDev model request
+  if (isRovoDevModel(requestBody.model)) {
+    // For RovoDev models, we need a profile to determine which keys to use
+    // The profile can be passed via a custom header or we can use 'default'
+    const profile = req.headers.get('x-profile') || 'default';
+    
+    requestLogger.info('Routing to RovoDev', {
+      requestId,
+      model: requestBody.model,
+      profile,
+      streaming: isStreaming
+    });
+
+    return await handleRovoDevRequest(
+      requestBody,
+      profile,
+      requestId,
+      startTime,
+      ipAddress || null
+    );
+  }
 
   // Extract tools from system message if no tools array is present
   if (!requestBody.tools || requestBody.tools.length === 0) {

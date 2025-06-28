@@ -13,6 +13,9 @@ export interface RequestLogData {
   errorType?: string | null; // e.g., 'ApiKeyError', 'UpstreamError', 'InternalError'
   errorMessage?: string | null;
   ipAddress?: string | null;
+  inputTokens?: number | null; // Track input tokens
+  outputTokens?: number | null; // Track output tokens
+  totalTokens?: number | null; // Track total tokens
 }
 
 // Helper to convert DB result (0/1) to boolean
@@ -36,6 +39,9 @@ export class RequestLog implements RequestLogData {
   errorType?: string | null;
   errorMessage?: string | null;
   ipAddress?: string | null;
+  inputTokens?: number | null;
+  outputTokens?: number | null;
+  totalTokens?: number | null;
 
   constructor(data: RequestLogData) {
     this._id = data._id;
@@ -48,6 +54,9 @@ export class RequestLog implements RequestLogData {
     this.errorType = data.errorType;
     this.errorMessage = data.errorMessage;
     this.ipAddress = data.ipAddress;
+    this.inputTokens = data.inputTokens;
+    this.outputTokens = data.outputTokens;
+    this.totalTokens = data.totalTokens;
   }
 
   // Static method to create a new log entry
@@ -67,11 +76,14 @@ export class RequestLog implements RequestLogData {
       errorType: data.errorType === undefined ? null : data.errorType,
       errorMessage: data.errorMessage === undefined ? null : data.errorMessage,
       ipAddress: data.ipAddress === undefined ? null : data.ipAddress,
+      inputTokens: data.inputTokens === undefined ? null : data.inputTokens,
+      outputTokens: data.outputTokens === undefined ? null : data.outputTokens,
+      totalTokens: data.totalTokens === undefined ? null : data.totalTokens,
     };
 
     await db.run(
-      `INSERT INTO request_logs (_id, apiKeyId, timestamp, modelUsed, responseTime, statusCode, isError, errorType, errorMessage, ipAddress)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO request_logs (_id, apiKeyId, timestamp, modelUsed, responseTime, statusCode, isError, errorType, errorMessage, ipAddress, inputTokens, outputTokens, totalTokens)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       logData._id,
       logData.apiKeyId,
       logData.timestamp,
@@ -81,7 +93,10 @@ export class RequestLog implements RequestLogData {
       booleanToDb(logData.isError),
       logData.errorType,
       logData.errorMessage,
-      logData.ipAddress
+      logData.ipAddress,
+      logData.inputTokens,
+      logData.outputTokens,
+      logData.totalTokens
     );
 
     // We need to fetch the created record to get default values if any were applied by DB

@@ -26,6 +26,7 @@ import {
   ChevronRight,
   LogOut,
   Users,
+  Brain,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -175,6 +176,13 @@ export default function Sidebar() {
               href="/keys"
               label="API Keys"
               isActive={pathname === '/keys' || pathname.startsWith('/keys/')}
+              isCollapsed={isCollapsed}
+            />
+            <NavItem
+              icon={Brain}
+              href="/rovodev-keys"
+              label="RovoDev Keys"
+              isActive={pathname === '/rovodev-keys' || pathname.startsWith('/rovodev-keys/')}
               isCollapsed={isCollapsed}
             />
             <NavItem

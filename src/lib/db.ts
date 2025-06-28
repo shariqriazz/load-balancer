@@ -126,6 +126,28 @@ async function initializeDatabase(): Promise<Database> {
     console.log('Initialized default settings in the database.');
   }
 
+  // Create rovodev_keys table if it doesn't exist
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS rovodev_keys (
+      _id TEXT PRIMARY KEY,
+      profile TEXT NOT NULL,
+      email TEXT NOT NULL,
+      api_token TEXT NOT NULL,
+      cloud_id TEXT,
+      is_internal BOOLEAN NOT NULL DEFAULT FALSE,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      last_used TEXT, -- ISO 8601 date string
+      failure_count INTEGER NOT NULL DEFAULT 0,
+      request_count INTEGER NOT NULL DEFAULT 0,
+      daily_tokens_used INTEGER NOT NULL DEFAULT 0,
+      daily_token_limit INTEGER NOT NULL DEFAULT 20000000, -- 20M tokens
+      last_reset_date TEXT, -- Date string YYYY-MM-DD
+      is_disabled_by_rate_limit BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+
   // Create request_logs table if it doesn't exist
   await db.exec(`
     CREATE TABLE IF NOT EXISTS request_logs (
@@ -139,6 +161,9 @@ async function initializeDatabase(): Promise<Database> {
       errorType TEXT,
       errorMessage TEXT,
       ipAddress TEXT,
+      inputTokens INTEGER, -- Track input tokens
+      outputTokens INTEGER, -- Track output tokens
+      totalTokens INTEGER, -- Track total tokens
       FOREIGN KEY (apiKeyId) REFERENCES api_keys(_id) ON DELETE CASCADE -- Optional: Enforce FK and cascade deletes
     );
   `);
@@ -151,6 +176,13 @@ async function initializeDatabase(): Promise<Database> {
   await db.exec(`CREATE INDEX IF NOT EXISTS idx_api_keys_active ON api_keys (isActive);`);
   await db.exec(`CREATE INDEX IF NOT EXISTS idx_api_keys_profile ON api_keys (profile);`);
   await db.exec(`CREATE INDEX IF NOT EXISTS idx_api_keys_rate_limit ON api_keys (isDisabledByRateLimit);`);
+  
+  // Create indexes for RovoDev keys
+  await db.exec(`CREATE INDEX IF NOT EXISTS idx_rovodev_keys_profile ON rovodev_keys (profile);`);
+  await db.exec(`CREATE INDEX IF NOT EXISTS idx_rovodev_keys_email ON rovodev_keys (email);`);
+  await db.exec(`CREATE INDEX IF NOT EXISTS idx_rovodev_keys_active ON rovodev_keys (is_active);`);
+  await db.exec(`CREATE INDEX IF NOT EXISTS idx_rovodev_keys_rate_limit ON rovodev_keys (is_disabled_by_rate_limit);`);
+  await db.exec(`CREATE INDEX IF NOT EXISTS idx_rovodev_keys_usage ON rovodev_keys (daily_tokens_used, last_used);`);
 
 
   console.log(`Database initialized successfully at ${DB_FILE}`);

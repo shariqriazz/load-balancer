@@ -1,4 +1,5 @@
 import { ApiKey } from '../models/ApiKey';
+import { RovoDevKey } from '../models/RovoDevKey';
 import { readSettings } from '../settings';
 
 /**
@@ -32,6 +33,42 @@ export class LoadBalancer {
       default:
         return this.selectRoundRobin(availableKeys);
     }
+  }
+
+  /**
+   * Select the best RovoDev key based on token usage (least used first)
+   */
+  static async selectRovoDevKey(availableKeys: RovoDevKey[]): Promise<RovoDevKey | null> {
+    if (availableKeys.length === 0) return null;
+    if (availableKeys.length === 1) return availableKeys[0];
+
+    // Reset daily usage for all keys if needed
+    for (const key of availableKeys) {
+      key.checkDailyReset();
+    }
+
+    // Filter out keys that are not usable
+    const usableKeys = availableKeys.filter(key => key.isUsable());
+    if (usableKeys.length === 0) return null;
+    if (usableKeys.length === 1) return usableKeys[0];
+
+    // Sort by remaining tokens (most remaining first), then by last used (oldest first)
+    const sortedKeys = usableKeys.sort((a, b) => {
+      const aRemaining = a.getRemainingTokens();
+      const bRemaining = b.getRemainingTokens();
+      
+      if (aRemaining !== bRemaining) {
+        return bRemaining - aRemaining; // Most remaining tokens first
+      }
+      
+      // If same remaining tokens, use least recently used
+      if (!a.lastUsed && !b.lastUsed) return 0;
+      if (!a.lastUsed) return -1;
+      if (!b.lastUsed) return 1;
+      return new Date(a.lastUsed).getTime() - new Date(b.lastUsed).getTime();
+    });
+
+    return sortedKeys[0];
   }
 
   /**
