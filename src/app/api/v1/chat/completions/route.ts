@@ -5,15 +5,38 @@ import { logError, requestLogger } from '@/lib/services/logger';
 import { readSettings } from '@/lib/settings';
 import { v4 as uuidv4 } from 'uuid';
 import { RequestLog } from '@/lib/models/RequestLog';
+import { LoadBalancer } from '@/lib/services/loadBalancer';
 async function handleStreamingResponse(axiosResponse: any, res: any) {
   const encoder = new TextEncoder();
+  let isAborted = false;
+  
   const stream = new ReadableStream({
     async start(controller) {
-      for await (const chunk of axiosResponse.data) {
-        controller.enqueue(encoder.encode(chunk));
+      try {
+        for await (const chunk of axiosResponse.data) {
+          if (isAborted) {
+            break;
+          }
+          controller.enqueue(encoder.encode(chunk));
+        }
+      } catch (error) {
+        if (!isAborted) {
+          console.error('Streaming error:', error);
+          controller.error(error);
+        }
+      } finally {
+        if (!isAborted) {
+          controller.close();
+        }
       }
-      controller.close();
     },
+    cancel() {
+      isAborted = true;
+      // Cleanup axios response stream if possible
+      if (axiosResponse.data && typeof axiosResponse.data.destroy === 'function') {
+        axiosResponse.data.destroy();
+      }
+    }
   });
 
   return new Response(stream, {
@@ -21,6 +44,22 @@ async function handleStreamingResponse(axiosResponse: any, res: any) {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  });
+}
+
+// Add OPTIONS handler for CORS preflight
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Max-Age': '86400', // 24 hours
     },
   });
 }
@@ -83,14 +122,18 @@ export async function POST(req: NextRequest) {
   }
   const isStreaming = body?.stream === true;
 
-  // Log incoming request
+  // Log incoming request (sanitized)
   requestLogger.info('Incoming Request', {
     requestId,
     path: '/api/v1/chat/completions',
     method: 'POST',
-    body,
     model: body?.model,
-    streaming: isStreaming
+    streaming: isStreaming,
+    messageCount: body?.messages?.length || 0,
+    hasTools: !!(body?.tools && body.tools.length > 0),
+    ipAddress: ipAddress,
+    userAgent: req.headers.get('user-agent'),
+    timestamp: new Date().toISOString()
   });
 
   let apiKeyIdForAttempt: string | null = null; // Store the ID used for the current attempt
@@ -108,7 +151,9 @@ export async function POST(req: NextRequest) {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${currentKeyValue}`,
-        }
+        },
+        timeout: 120000, // 2 minutes timeout
+        validateStatus: (status: number) => status < 500 || status === 503, // Don't throw on client errors
       };
       
       // Modify the request body to include Google Search grounding if enabled AND only for Google API
@@ -166,6 +211,9 @@ export async function POST(req: NextRequest) {
 
       // Mark the successful use of the key
       await keyManager.markKeySuccess();
+      
+      // Decrement connection count for load balancing
+      LoadBalancer.decrementConnections(apiKeyIdForAttempt);
 
       // Log successful response
       const responseTime = Date.now() - startTime;
@@ -199,13 +247,16 @@ export async function POST(req: NextRequest) {
       const isRateLimit = await keyManager.markKeyError(error);
 
       // Only retry on rate limits or server errors
-      // Use the fetched maxRetries value in the condition
-      // Note: The loop condition is `retryCount < maxRetries`, so we retry as long as count is 0, 1, ..., maxRetries-1
-      // The check here should be if we have retries *left*, so check against maxRetries directly.
-      // If maxRetries is 3, we want to retry when retryCount is 0 or 1. We stop if retryCount becomes 2.
-      // So the condition should be `retryCount < maxRetries - 1`.
-      if ((isRateLimit || error.response?.status >= 500) && retryCount < maxRetries - 1) {
+      // If maxRetries is 3, we want to retry when retryCount is 0, 1, or 2. We stop if retryCount becomes 3.
+      // So the condition should be `retryCount < maxRetries`.
+      if ((isRateLimit || error.response?.status >= 500) && retryCount < maxRetries) {
         retryCount++;
+        
+        // Add exponential backoff for retries
+        const backoffDelay = Math.min(1000 * Math.pow(2, retryCount - 1), 10000); // Max 10 seconds
+        if (backoffDelay > 0) {
+          await new Promise(resolve => setTimeout(resolve, backoffDelay));
+        }
         continue;
       }
 
@@ -222,7 +273,7 @@ export async function POST(req: NextRequest) {
         errorType = 'UpstreamTimeoutError';
       }
       // Log error to DB (only if not retrying or if it's the last retry attempt)
-      if (!((isRateLimit || statusCode >= 500) && retryCount < maxRetries - 1)) {
+      if (!((isRateLimit || statusCode >= 500) && retryCount < maxRetries)) {
         await RequestLog.create({
           apiKeyId: apiKeyIdForAttempt || 'UNKNOWN', // Use ID or fallback
           statusCode: statusCode,

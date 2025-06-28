@@ -344,12 +344,12 @@ describe('POST /api/v1/chat/completions - Google Search Grounding Logic', () => 
     const response = await POST(req);
     const responseJson = await response.json();
 
-    expect(mockAxiosPost).toHaveBeenCalledTimes(2); // Called initial + 1 retry
+    expect(mockAxiosPost).toHaveBeenCalledTimes(2); // Called initial + 1 retry (maxRetries = 2)
     expect(mockKeyManagerGetKey).toHaveBeenCalledTimes(2);
     expect(mockKeyManagerMarkKeyError).toHaveBeenCalledTimes(2);
-    expect(response.status).toBe(429); // Should return the last error status
-    expect(responseJson.error.message).toBe('Rate limit again'); // Message from the second mockRejectedValueOnce
-    expect(responseJson.error.type).toBe('internal_error'); // Or whatever type the actual error response would have
+    expect(response.status).toBe(500); // Should return 500 when max retries exceeded
+    expect(responseJson.error.message).toBe('Maximum retries exceeded'); // Message when retries are exhausted
+    expect(responseJson.error.type).toBe('internal_error');
 
     // Check that grounding logic was applied on each attempt
     const firstCallBody = mockAxiosPost.mock.calls[0][1];
@@ -360,19 +360,18 @@ describe('POST /api/v1/chat/completions - Google Search Grounding Logic', () => 
     expect(secondCallBody.tools).toEqual([]);
     expect(secondCallBody.tool_choice).toBe('auto');
 
-    // Verify RequestLog.create was called once for the final 429 error
+    // Verify RequestLog.create was called once for the final max retries exceeded error
     expect(mockRequestLogCreate).toHaveBeenCalledTimes(1);
     expect(mockRequestLogCreate).toHaveBeenCalledWith(expect.objectContaining({
-      statusCode: 429,
+      statusCode: 500,
       isError: true,
-      errorMessage: 'Rate limit again', // This was the message of the second (final) error
-      errorType: 'ApiKeyError',
+      errorMessage: 'Maximum retries exceeded after multiple upstream failures.',
+      errorType: 'MaxRetriesExceeded',
       modelUsed: 'gemini-pro', // Ensure this matches the requestBody model
-      // apiKeyId should be 'key-id-123' from the second call to getKey
     }));
 
-    // Ensure the "MaxRetriesExceeded" logError was NOT called in this scenario
-    expect(mockLogError).not.toHaveBeenCalledWith(
+    // Ensure the "MaxRetriesExceeded" logError WAS called in this scenario
+    expect(mockLogError).toHaveBeenCalledWith(
       expect.any(Error),
       expect.objectContaining({ errorType: 'MaxRetriesExceeded' })
     );

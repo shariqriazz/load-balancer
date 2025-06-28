@@ -37,6 +37,7 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 let dbInstance: Database | null = null;
+let isShuttingDown = false;
 
 // Function to ensure the data directory exists
 async function ensureDataDir() {
@@ -48,6 +49,30 @@ async function ensureDataDir() {
       throw error; // Re-throw if it's not an 'already exists' error
     }
   }
+}
+
+// Graceful shutdown handler
+async function gracefulShutdown() {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  
+  console.log('Shutting down database connection...');
+  if (dbInstance) {
+    try {
+      await dbInstance.close();
+      dbInstance = null;
+      console.log('Database connection closed successfully');
+    } catch (error) {
+      console.error('Error closing database connection:', error);
+    }
+  }
+}
+
+// Register shutdown handlers
+if (typeof process !== 'undefined') {
+  process.on('SIGINT', gracefulShutdown);
+  process.on('SIGTERM', gracefulShutdown);
+  process.on('beforeExit', gracefulShutdown);
 }
 
 // Function to initialize the database connection and schema
@@ -117,6 +142,11 @@ async function initializeDatabase(): Promise<Database> {
   // Create indexes for faster querying
   await db.exec(`CREATE INDEX IF NOT EXISTS idx_request_logs_timestamp ON request_logs (timestamp);`);
   await db.exec(`CREATE INDEX IF NOT EXISTS idx_request_logs_apiKeyId ON request_logs (apiKeyId);`);
+  await db.exec(`CREATE INDEX IF NOT EXISTS idx_request_logs_error ON request_logs (isError);`);
+  await db.exec(`CREATE INDEX IF NOT EXISTS idx_request_logs_status ON request_logs (statusCode);`);
+  await db.exec(`CREATE INDEX IF NOT EXISTS idx_api_keys_active ON api_keys (isActive);`);
+  await db.exec(`CREATE INDEX IF NOT EXISTS idx_api_keys_profile ON api_keys (profile);`);
+  await db.exec(`CREATE INDEX IF NOT EXISTS idx_api_keys_rate_limit ON api_keys (isDisabledByRateLimit);`);
 
 
   console.log(`Database initialized successfully at ${DB_FILE}`);
@@ -125,18 +155,26 @@ async function initializeDatabase(): Promise<Database> {
 
 // Function to get the database instance (singleton pattern)
 export async function getDb(): Promise<Database> {
+  if (isShuttingDown) {
+    throw new Error('Database is shutting down');
+  }
+  
   if (!dbInstance) {
     try {
       dbInstance = await initializeDatabase();
     } catch (error) {
       logError(error, { context: 'getDb initialization' });
       console.error('Failed to initialize database:', error);
-      // Depending on the desired behavior, you might want to exit the process
-      // or handle this error more gracefully.
-      process.exit(1); // Exit if DB connection fails critically
+      // Don't exit process in production, throw error instead
+      throw new Error(`Database initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
   return dbInstance;
+}
+
+// Function to safely close database connection
+export async function closeDb(): Promise<void> {
+  await gracefulShutdown();
 }
 
 // Remove this duplicate export at the end of the file

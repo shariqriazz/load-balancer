@@ -1,18 +1,25 @@
 import { SessionOptions } from 'iron-session';
+import { createHash, pbkdf2Sync } from 'crypto';
+import { ENV_CONFIG } from './env-validation';
 
 // Define the structure of your session data
 export interface SessionData {
   isLoggedIn?: boolean; // Make it optional as it might not exist initially
+  loginTime?: number; // Track when user logged in
+  passwordHash?: string; // Hash of password used for this session
 }
 
-// Use ADMIN_PASSWORD for session encryption as requested
-// Ensure ADMIN_PASSWORD is set in your .env file
-const sessionEncryptionPassword = process.env.ADMIN_PASSWORD;
+// Use validated ADMIN_PASSWORD for session encryption
+const adminPassword = ENV_CONFIG.ADMIN_PASSWORD;
 
-if (!sessionEncryptionPassword) {
-  // Throw an error during build or server start if ADMIN_PASSWORD is not set
-  throw new Error('ADMIN_PASSWORD environment variable is not set. This is required for session encryption and login.');
-}
+// Derive a proper encryption key from the admin password
+const salt = 'load-balancer-session-salt'; // In production, use a random salt stored securely
+const sessionEncryptionPassword = pbkdf2Sync(adminPassword, salt, 100000, 32, 'sha256').toString('hex');
+
+// Create a hash of the admin password for session validation
+export const getPasswordHash = () => {
+  return createHash('sha256').update(adminPassword).digest('hex');
+};
 
 export const sessionOptions: SessionOptions = {
   password: sessionEncryptionPassword,
@@ -32,5 +39,7 @@ declare module 'iron-session' {
   interface IronSessionData {
     // Allow any properties defined in SessionData to exist directly on the session object
     isLoggedIn?: SessionData['isLoggedIn'];
+    loginTime?: SessionData['loginTime'];
+    passwordHash?: SessionData['passwordHash'];
   }
 }

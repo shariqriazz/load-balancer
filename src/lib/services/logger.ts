@@ -28,10 +28,24 @@ const requestTransport = new winston.transports.DailyRotateFile({
   datePattern: 'YYYY-MM-DD',
   maxSize: '20m',
   maxFiles: '14d',
+  auditFile: path.join(logsDir, 'requests-audit.json'),
   format: winston.format.combine(
     winston.format.timestamp(),
     winston.format.json()
   )
+});
+
+// Handle log rotation events
+requestTransport.on('rotate', (oldFilename, newFilename) => {
+  console.log(`Request log rotated: ${oldFilename} -> ${newFilename}`);
+});
+
+requestTransport.on('archive', (zipFilename) => {
+  console.log(`Request log archived: ${zipFilename}`);
+});
+
+requestTransport.on('logRemoved', (removedFilename) => {
+  console.log(`Old request log removed: ${removedFilename}`);
 });
 
 // Configure transport for errors

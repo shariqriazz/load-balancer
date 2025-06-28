@@ -25,38 +25,27 @@ export default function RootLayout({
               (function() {
                 try {
                   // Apply a base style to prevent flash
-                   document.documentElement.style.colorScheme = 'dark light';
-                   
-                   const storedTheme = localStorage.getItem('theme');
-                   if (storedTheme === 'dark') {
-                     document.documentElement.classList.add('dark');
-                     document.body.style.background = 'linear-gradient(135deg, hsl(220 15% 18%), hsl(220 20% 14%), hsl(220 25% 10%))';
-                     document.body.style.backgroundAttachment = 'fixed';
-                     document.body.style.backgroundSize = 'cover';
-                   } else if (storedTheme === 'light') {
-                     document.documentElement.classList.remove('dark');
-                     document.body.style.background = 'linear-gradient(135deg, hsl(210 50% 98%), hsl(240 50% 95%), hsl(220 40% 92%))';
-                     document.body.style.backgroundAttachment = 'fixed';
-                     document.body.style.backgroundSize = 'cover';
-                   } else {
-                     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                     if (systemPrefersDark) {
-                       document.documentElement.classList.add('dark');
-                       document.body.style.background = 'linear-gradient(135deg, hsl(220 15% 18%), hsl(220 20% 14%), hsl(220 25% 10%))';
-                       document.body.style.backgroundAttachment = 'fixed';
-                       document.body.style.backgroundSize = 'cover';
-                     } else {
-                       document.documentElement.classList.remove('dark');
-                       document.body.style.background = 'linear-gradient(135deg, hsl(210 50% 98%), hsl(240 50% 95%), hsl(220 40% 92%))';
-                       document.body.style.backgroundAttachment = 'fixed';
-                       document.body.style.backgroundSize = 'cover';
-                     }
-                   }
-                 } catch (e) {
-                   console.error('Error applying theme:', e);
-                 }
-               })();
-             `,
+                  document.documentElement.style.colorScheme = 'dark light';
+                  
+                  // Set initial theme class only, let providers handle the rest
+                  const storedTheme = localStorage.getItem('theme');
+                  if (storedTheme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                  } else if (storedTheme === 'light') {
+                    document.documentElement.classList.remove('dark');
+                  } else {
+                    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    if (systemPrefersDark) {
+                      document.documentElement.classList.add('dark');
+                    } else {
+                      document.documentElement.classList.remove('dark');
+                    }
+                  }
+                } catch (e) {
+                  console.error('Error applying initial theme:', e);
+                }
+              })();
+            `,
           }}
         />
       </head>

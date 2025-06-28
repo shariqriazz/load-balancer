@@ -6,6 +6,34 @@ let cachedSettings: Settings | null = null;
 let lastReadTime: number | null = null;
 const CACHE_DURATION_MS = 60 * 1000; // Cache settings for 60 seconds
 
+// Cleanup interval to prevent memory leaks
+let cleanupInterval: NodeJS.Timeout | null = null;
+
+function startCleanupInterval() {
+  if (cleanupInterval) return;
+  
+  cleanupInterval = setInterval(() => {
+    const now = Date.now();
+    if (lastReadTime && (now - lastReadTime > CACHE_DURATION_MS * 2)) {
+      cachedSettings = null;
+      lastReadTime = null;
+    }
+  }, CACHE_DURATION_MS);
+}
+
+function stopCleanupInterval() {
+  if (cleanupInterval) {
+    clearInterval(cleanupInterval);
+    cleanupInterval = null;
+  }
+}
+
+// Start cleanup interval
+if (typeof process !== 'undefined') {
+  startCleanupInterval();
+  process.on('beforeExit', stopCleanupInterval);
+}
+
 // Function to write settings to the database
 async function writeSettingsToDb(settings: Settings): Promise<void> {
   const db = await getDb();
