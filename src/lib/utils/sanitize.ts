@@ -31,11 +31,30 @@ export const sanitizeRequest = (request: any) => {
 /**
  * Masks an API key for display, showing only the first few and last few characters
  */
-const maskApiKey = (key: string): string => {
+export const maskApiKey = (key: string): string => {
   if (!key || key.length < 10) return 'INVALID_KEY';
   
   const firstPart = key.substring(0, 6);
   const lastPart = key.substring(key.length - 4);
   
   return `${firstPart}...${lastPart}`;
+};
+
+/**
+ * Sanitizes response data to remove sensitive information
+ */
+export const sanitizeResponse = (response: any) => {
+  const sanitized = { ...response };
+  
+  // Redact any keys in response data
+  if (sanitized.data && Array.isArray(sanitized.data)) {
+    sanitized.data = sanitized.data.map((item: any) => {
+      if (item.key) {
+        return { ...item, key: maskApiKey(item.key) };
+      }
+      return item;
+    });
+  }
+  
+  return sanitized;
 };

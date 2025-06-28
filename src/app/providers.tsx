@@ -7,28 +7,15 @@ import { useEffect, useState } from 'react';
 export function Providers({ children, ...props }: ThemeProviderProps) {
   const [mounted, setMounted] = useState(false);
 
-  // Force immediate application of theme class on component mount
+  // Apply gradients and set up theme monitoring
   useEffect(() => {
     setMounted(true);
 
-    // Apply theme from local storage immediately to prevent flicker
-    const storedTheme = localStorage.getItem('theme');
-    if (storedTheme === 'dark') {
-      document.documentElement.classList.add('dark');
+    // Apply initial gradient based on current theme
+    if (document.documentElement.classList.contains('dark')) {
       applyDarkGradient();
-    } else if (storedTheme === 'light') {
-      document.documentElement.classList.remove('dark');
-      applyLightGradient();
     } else {
-      // Check system preference
-      const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      if (systemPrefersDark) {
-        document.documentElement.classList.add('dark');
-        applyDarkGradient();
-      } else {
-        document.documentElement.classList.remove('dark');
-        applyLightGradient();
-      }
+      applyLightGradient();
     }
 
     // Set up a MutationObserver to detect class changes on html element

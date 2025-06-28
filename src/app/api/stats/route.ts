@@ -153,18 +153,48 @@ async function generateStats(timeRange: string) {
     } else {
       groupByFormat = `strftime('%Y-%m-%d', timestamp)`;
     }
+    // Optimized query with better aggregation
     const requestDataDbResult = await db.all<any[]>(
       `SELECT
          ${groupByFormat} as period,
          COUNT(*) as total_requests,
          SUM(CASE WHEN isError = 1 THEN 1 ELSE 0 END) as errors,
-         SUM(CASE WHEN isError = 1 AND errorType = 'ApiKeyError' THEN 1 ELSE 0 END) as apiKeyErrors
+         SUM(CASE WHEN isError = 1 AND errorType = 'ApiKeyError' THEN 1 ELSE 0 END) as apiKeyErrors,
+         AVG(CASE WHEN isError = 0 AND responseTime IS NOT NULL THEN responseTime END) as avg_response_time
        FROM request_logs
        WHERE timestamp >= ? AND timestamp <= ?
        GROUP BY period
        ORDER BY period ASC`,
       requestStartDateISO, requestEndDateISO
     );
+
+    // Fill in missing periods with zero values
+    const periodMap = new Map();
+    requestDataDbResult.forEach(row => {
+      periodMap.set(row.period, row);
+    });
+
+    const completeRequestData = timePeriods.map(date => {
+      let periodKey;
+      if (timeRange === '24h') {
+        periodKey = date.toISOString().substring(0, 13) + ':00:00';
+      } else {
+        periodKey = date.toISOString().substring(0, 10);
+      }
+      
+      const data = periodMap.get(periodKey) || {
+        period: periodKey,
+        total_requests: 0,
+        errors: 0,
+        apiKeyErrors: 0,
+        avg_response_time: null
+      };
+      
+      return {
+        ...data,
+        avg_response_time: data.avg_response_time ? Math.round(data.avg_response_time) : 0
+      };
+    });
 
     // Process requestDataDbResult here if needed
 
@@ -177,7 +207,7 @@ async function generateStats(timeRange: string) {
       avgResponseTime,
       successRate: totalRequests > 0 ? ((totalRequests - totalErrors) / totalRequests) * 100 : 0,
       activeKeys,
-      requestData: requestDataDbResult, // Assuming requestDataDbResult is the data for the chart
+      requestData: completeRequestData, // Use the complete data with filled periods
       timePeriods: timePeriods.map(date => formatDate(date, timeRange)), // Format periods for chart labels
     };
 

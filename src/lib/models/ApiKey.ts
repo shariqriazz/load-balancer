@@ -63,22 +63,41 @@ export class ApiKey implements ApiKeyData {
   // Static method to find one key by query object
   static async findOne(query: Partial<ApiKeyData>): Promise<ApiKey | null> {
     const db = await getDb();
-    // Build WHERE clause dynamically (simple example, needs more robust handling for complex queries)
+    
+    // Validate and sanitize query parameters
+    const validFields = ['_id', 'key', 'isActive', 'profile', 'isDisabledByRateLimit'];
+    const sanitizedQuery: Partial<ApiKeyData> = {};
+    
+    for (const [key, value] of Object.entries(query)) {
+      if (validFields.includes(key) && value !== undefined) {
+        (sanitizedQuery as any)[key] = value;
+      }
+    }
+    
+    // Build WHERE clause with parameterized queries
     let whereClause = 'WHERE 1=1';
     const params: any[] = [];
-    if (query._id !== undefined) {
+    
+    if (sanitizedQuery._id !== undefined) {
       whereClause += ' AND _id = ?';
-      params.push(query._id);
+      params.push(sanitizedQuery._id);
     }
-    if (query.key !== undefined) {
+    if (sanitizedQuery.key !== undefined) {
       whereClause += ' AND key = ?';
-      params.push(query.key);
+      params.push(sanitizedQuery.key);
     }
-    if (query.isActive !== undefined) {
+    if (sanitizedQuery.isActive !== undefined) {
       whereClause += ' AND isActive = ?';
-      params.push(booleanToDb(query.isActive));
+      params.push(booleanToDb(sanitizedQuery.isActive));
     }
-    // Add other query fields as needed...
+    if (sanitizedQuery.profile !== undefined) {
+      whereClause += ' AND profile = ?';
+      params.push(sanitizedQuery.profile);
+    }
+    if (sanitizedQuery.isDisabledByRateLimit !== undefined) {
+      whereClause += ' AND isDisabledByRateLimit = ?';
+      params.push(booleanToDb(sanitizedQuery.isDisabledByRateLimit));
+    }
 
     const row = await db.get<ApiKeyData>(`SELECT * FROM api_keys ${whereClause}`, params);
 
@@ -106,6 +125,10 @@ export class ApiKey implements ApiKeyData {
     if (query.isDisabledByRateLimit !== undefined) {
         whereClause += ' AND isDisabledByRateLimit = ?';
         params.push(booleanToDb(query.isDisabledByRateLimit));
+    }
+    if (query.profile !== undefined) {
+        whereClause += ' AND profile = ?';
+        params.push(query.profile);
     }
     // Handle the $or condition for rateLimitResetAt specifically for keyManager usage
     if ((query as any).$or && Array.isArray((query as any).$or)) {
@@ -225,31 +248,51 @@ export class ApiKey implements ApiKeyData {
     if (updatedKeysMap.size === 0) return;
 
     const db = await getDb();
+    let transaction = false;
+    
     try {
-      await db.run('BEGIN TRANSACTION');
-      for (const keyInstance of updatedKeysMap.values()) {
-        await db.run(
-          `UPDATE api_keys
-           SET key = ?, name = ?, profile = ?, isActive = ?, lastUsed = ?, rateLimitResetAt = ?, failureCount = ?, requestCount = ?, dailyRateLimit = ?, dailyRequestsUsed = ?, lastResetDate = ?, isDisabledByRateLimit = ?
-           WHERE _id = ?`,
-          keyInstance.key,
-          keyInstance.name,
-          keyInstance.profile,
-          booleanToDb(keyInstance.isActive),
-          keyInstance.lastUsed,
-          keyInstance.rateLimitResetAt,
-          keyInstance.failureCount,
-          keyInstance.requestCount,
-          keyInstance.dailyRateLimit,
-          keyInstance.dailyRequestsUsed,
-          keyInstance.lastResetDate,
-          booleanToDb(keyInstance.isDisabledByRateLimit),
-          keyInstance._id
-        );
+      await db.run('BEGIN IMMEDIATE TRANSACTION'); // Use IMMEDIATE to avoid deadlocks
+      transaction = true;
+      
+      // Prepare statement for better performance
+      const stmt = await db.prepare(
+        `UPDATE api_keys
+         SET key = ?, name = ?, profile = ?, isActive = ?, lastUsed = ?, rateLimitResetAt = ?, failureCount = ?, requestCount = ?, dailyRateLimit = ?, dailyRequestsUsed = ?, lastResetDate = ?, isDisabledByRateLimit = ?
+         WHERE _id = ?`
+      );
+      
+      try {
+        for (const keyInstance of updatedKeysMap.values()) {
+          await stmt.run(
+            keyInstance.key,
+            keyInstance.name,
+            keyInstance.profile,
+            booleanToDb(keyInstance.isActive),
+            keyInstance.lastUsed,
+            keyInstance.rateLimitResetAt,
+            keyInstance.failureCount,
+            keyInstance.requestCount,
+            keyInstance.dailyRateLimit,
+            keyInstance.dailyRequestsUsed,
+            keyInstance.lastResetDate,
+            booleanToDb(keyInstance.isDisabledByRateLimit),
+            keyInstance._id
+          );
+        }
+      } finally {
+        await stmt.finalize();
       }
+      
       await db.run('COMMIT');
+      transaction = false;
     } catch (error) {
-      await db.run('ROLLBACK'); // Rollback on error
+      if (transaction) {
+        try {
+          await db.run('ROLLBACK');
+        } catch (rollbackError) {
+          console.error("Rollback failed:", rollbackError);
+        }
+      }
       console.error("Bulk update failed:", error);
       throw error; // Re-throw the error
     }

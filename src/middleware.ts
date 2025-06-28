@@ -49,7 +49,20 @@ export async function middleware(request: NextRequest) {
   if (requireAdminLogin) {
     const session = await getIronSession<SessionData>(cookies(), sessionOptions);
 
-    if (!session.isLoggedIn) {
+    // Basic session validation (detailed validation happens in API routes)
+    const isValidSession = session.isLoggedIn && 
+                          session.loginTime &&
+                          (Date.now() - session.loginTime) < (7 * 24 * 60 * 60 * 1000); // 7 days max
+
+    if (!isValidSession) {
+      // Clear invalid session
+      if (session.isLoggedIn) {
+        session.isLoggedIn = false;
+        session.loginTime = undefined;
+        session.passwordHash = undefined;
+        await session.save();
+      }
+      
       const loginUrl = new URL('/login', request.url);
       return NextResponse.redirect(loginUrl);
     }

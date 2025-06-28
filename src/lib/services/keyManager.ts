@@ -3,30 +3,44 @@ import { logKeyEvent, logError } from './logger';
 import { readSettings } from '@/lib/settings';
 import { Settings } from '@/lib/db'; // Import Settings type
 import { Mutex } from 'async-mutex'; // Import Mutex
+import { LoadBalancer } from './loadBalancer';
 
-// Helper function to check if two date objects represent the same day in the server's local timezone
-function isSameLocalDay(date1: Date | null, date2: Date | null): boolean {
+// Helper function to check if two date objects represent the same day in UTC
+function isSameUTCDay(date1: Date | null, date2: Date | null): boolean {
   if (!date1 || !date2) return false;
   return (
-    date1.getFullYear() === date2.getFullYear() &&
-    date1.getMonth() === date2.getMonth() &&
-    date1.getDate() === date2.getDate()
+    date1.getUTCFullYear() === date2.getUTCFullYear() &&
+    date1.getUTCMonth() === date2.getUTCMonth() &&
+    date1.getUTCDate() === date2.getUTCDate()
   );
+}
+
+// Helper function to get UTC start of day
+function getUTCStartOfDay(date: Date): Date {
+  const utcDate = new Date(date);
+  utcDate.setUTCHours(0, 0, 0, 0);
+  return utcDate;
 }
 class KeyManager {
   private currentKey: ApiKey | null = null;
   private requestCounter: number = 0;
   private mutex = new Mutex(); // Create a mutex instance
+  private isInitialized: boolean = false;
 
   constructor() {
     // Constructor no longer needs to set rotationRequestCount
   }
 
   async initialize() {
-    // Call getKey() which will handle initial rotation if needed
-    if (!this.currentKey) {
-      await this.getKey();
-    }
+    return await this.mutex.runExclusive(async () => {
+      if (this.isInitialized) return;
+      
+      // Call getKey() which will handle initial rotation if needed
+      if (!this.currentKey) {
+        await this._internalRotateKey();
+      }
+      this.isInitialized = true;
+    });
   }
 
   // Internal rotateKey logic, now wrapped by getKey's mutex
@@ -35,7 +49,7 @@ class KeyManager {
     try {
       // Get a working key that's not in cooldown
       const now = new Date();
-      const todayLocalString = now.toLocaleDateString('en-CA'); // YYYY-MM-DD format for local date
+      const todayUTCString = now.toISOString().split('T')[0]; // YYYY-MM-DD format for UTC date
 
       // --- FIRST: Check ALL active keys for daily resets, even rate-limited ones ---
       const allActiveKeys = await ApiKey.findAll({
@@ -50,14 +64,14 @@ class KeyManager {
         const lastReset = key.lastResetDate ? new Date(key.lastResetDate) : null;
         let needsUpdate = false;
 
-        // Check if last reset was before today (local time)
-        if (!lastReset || !isSameLocalDay(lastReset, now)) {
+        // Check if last reset was before today (UTC time)
+        if (!lastReset || !isSameUTCDay(lastReset, now)) {
            if (key.dailyRequestsUsed > 0 || key.isDisabledByRateLimit) { // Only reset if needed
               key.dailyRequestsUsed = 0;
               key.isDisabledByRateLimit = false; // Re-enable if it was disabled by rate limit
               key.lastResetDate = now.toISOString();
               needsUpdate = true;
-              logKeyEvent('Daily Limit Reset', { keyId: key._id, date: todayLocalString });
+              logKeyEvent('Daily Limit Reset', { keyId: key._id, date: todayUTCString });
            } else if (!key.lastResetDate) {
              // Set initial reset date if it's null
              key.lastResetDate = now.toISOString();
@@ -115,21 +129,10 @@ class KeyManager {
         // If no keys from different profiles, we'll use all available keys
       }
 
-      // --- Hybrid LRU + New Key Priority Logic ---
-      // 1. Prioritize unused keys
-      let key = availableKeys.find(k => k.lastUsed === null);
-
-      // 2. If no unused keys, fall back to LRU
-      if (!key) {
-        const sortedKeys = availableKeys.sort((a, b) => {
-          // Should not happen based on find above, but defensive check
-          if (!a.lastUsed) return -1;
-          if (!b.lastUsed) return 1;
-          return new Date(a.lastUsed).getTime() - new Date(b.lastUsed).getTime();
-        });
-        key = sortedKeys[0]; // Select the least recently used
-      }
-      // --- End of Hybrid Logic ---
+      // --- Load Balancing Strategy Selection ---
+      // Use the configured load balancing strategy
+      const key = await LoadBalancer.selectKey(availableKeys);
+      // --- End of Load Balancing Logic ---
 
       if (!key) {
         // This should theoretically not be reached if availableKeys.length > 0 check passed
@@ -141,13 +144,17 @@ class KeyManager {
       this.currentKey = key;
       this.requestCounter = 0; // Reset counter on key rotation
 
+      // Track connection for least-connections strategy
+      LoadBalancer.incrementConnections(key._id);
+
       // Log key rotation
       logKeyEvent('Key Rotation', {
         keyId: key._id,
         lastUsed: key.lastUsed,
         failureCount: key.failureCount,
         profile: key.profile || 'none',
-        rotationType: 'scheduled'
+        rotationType: 'scheduled',
+        activeConnections: LoadBalancer.getConnectionCount(key._id)
       });
 
       return { key: key.key, id: key._id };
@@ -158,25 +165,27 @@ class KeyManager {
   }
 
   async markKeySuccess() {
-    if (this.currentKey) {
-      try {
-        const now = new Date().toISOString();
-        this.currentKey.lastUsed = now;
-        this.currentKey.requestCount += 1; // Increment total request count
-        this.currentKey.dailyRequestsUsed += 1; // Increment daily request count
-        await this.currentKey.save();
+    return await this.mutex.runExclusive(async () => {
+      if (this.currentKey) {
+        try {
+          const now = new Date().toISOString();
+          this.currentKey.lastUsed = now;
+          this.currentKey.requestCount += 1; // Increment total request count
+          this.currentKey.dailyRequestsUsed += 1; // Increment daily request count
+          await this.currentKey.save();
 
-        logKeyEvent('Key Success', {
-          keyId: this.currentKey._id,
-          lastUsed: this.currentKey.lastUsed,
-          requestCount: this.currentKey.requestCount,
-          dailyRequestsUsed: this.currentKey.dailyRequestsUsed,
-          dailyRateLimit: this.currentKey.dailyRateLimit
-        });
-      } catch (error: any) {
-        logError(error, { action: 'markKeySuccess' });
+          logKeyEvent('Key Success', {
+            keyId: this.currentKey._id,
+            lastUsed: this.currentKey.lastUsed,
+            requestCount: this.currentKey.requestCount,
+            dailyRequestsUsed: this.currentKey.dailyRequestsUsed,
+            dailyRateLimit: this.currentKey.dailyRateLimit
+          });
+        } catch (error: any) {
+          logError(error, { action: 'markKeySuccess' });
+        }
       }
-    }
+    });
   }
 
   async markKeyError(error: any): Promise<boolean> {
@@ -225,6 +234,8 @@ class KeyManager {
 
         // Clear current key ONLY if it's still the one we were working on
         if (this.currentKey?._id === keyToUpdate._id) {
+            // Decrement connection count when clearing key
+            LoadBalancer.decrementConnections(keyToUpdate._id);
             this.currentKey = null;
         }
         return true; // Indicate it was a rate limit error
@@ -249,6 +260,8 @@ class KeyManager {
         await keyToUpdate.save();
         // Clear current key ONLY if it's still the one we were working on
         if (this.currentKey?._id === keyToUpdate._id) {
+            // Decrement connection count when clearing key
+            LoadBalancer.decrementConnections(keyToUpdate._id);
             this.currentKey = null;
         }
       } else {
@@ -276,14 +289,14 @@ class KeyManager {
     return await this.mutex.runExclusive(async () => {
       try {
       const now = new Date();
-      const todayLocalString = now.toLocaleDateString('en-CA'); // YYYY-MM-DD format for local date
+      const todayUTCString = now.toISOString().split('T')[0]; // YYYY-MM-DD format for UTC date
 
       // --- Check 1: Is there a current key? ---
       if (this.currentKey) {
         // --- Check 2: Perform daily reset for the current key FIRST ---
         const lastReset = this.currentKey.lastResetDate ? new Date(this.currentKey.lastResetDate) : null;
-        if (!lastReset || !isSameLocalDay(lastReset, now)) {
-          logKeyEvent('Daily Limit Reset (getKey)', { keyId: this.currentKey._id, date: todayLocalString });
+        if (!lastReset || !isSameUTCDay(lastReset, now)) {
+          logKeyEvent('Daily Limit Reset (getKey)', { keyId: this.currentKey._id, date: todayUTCString });
           this.currentKey.dailyRequestsUsed = 0;
           this.currentKey.isDisabledByRateLimit = false; // Ensure re-enabled *before* other checks
           this.currentKey.lastResetDate = now.toISOString();

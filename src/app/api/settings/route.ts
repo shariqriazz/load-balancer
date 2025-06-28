@@ -22,6 +22,33 @@ function validateString(value: any, defaultValue: string): string {
   return defaultValue;
 }
 
+function validateEndpoint(value: any, defaultValue: string): string {
+  if (typeof value !== 'string') return defaultValue;
+  
+  const trimmed = value.trim();
+  if (!trimmed) return defaultValue;
+  
+  try {
+    const url = new URL(trimmed);
+    // Only allow https in production
+    if (process.env.NODE_ENV === 'production' && url.protocol !== 'https:') {
+      throw new Error('Only HTTPS endpoints are allowed in production');
+    }
+    return trimmed;
+  } catch (error) {
+    console.warn('Invalid endpoint URL provided:', trimmed);
+    return defaultValue;
+  }
+}
+
+function validateLoadBalancingStrategy(value: any, defaultValue: 'round-robin' | 'random' | 'least-connections'): 'round-robin' | 'random' | 'least-connections' {
+  const validStrategies = ['round-robin', 'random', 'least-connections'] as const;
+  if (typeof value === 'string' && validStrategies.includes(value as any)) {
+    return value as 'round-robin' | 'random' | 'least-connections';
+  }
+  return defaultValue;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -35,12 +62,9 @@ export async function POST(request: NextRequest) {
       rateLimitCooldown: validateNumber(body.rateLimitCooldown, currentSettings.rateLimitCooldown, 10, 3600),
       logRetentionDays: validateNumber(body.logRetentionDays, currentSettings.logRetentionDays, 1, 90),
       maxRetries: validateNumber(body.maxRetries, currentSettings.maxRetries, 0, 10),
-      endpoint: validateString(body.endpoint, currentSettings.endpoint),
+      endpoint: validateEndpoint(body.endpoint, currentSettings.endpoint),
       failoverDelay: validateNumber(body.failoverDelay, currentSettings.failoverDelay, 0, 60),
-      enableGoogleGrounding: typeof body.enableGoogleGrounding === 'boolean' ? body.enableGoogleGrounding : currentSettings.enableGoogleGrounding,
-      loadBalancingStrategy: body.loadBalancingStrategy && ['round-robin', 'random', 'least-connections'].includes(body.loadBalancingStrategy)
-        ? body.loadBalancingStrategy
-        : currentSettings.loadBalancingStrategy,
+      loadBalancingStrategy: validateLoadBalancingStrategy(body.loadBalancingStrategy, currentSettings.loadBalancingStrategy),
       requestRateLimit: validateNumber(body.requestRateLimit, currentSettings.requestRateLimit, 0, 1000),
     };
 

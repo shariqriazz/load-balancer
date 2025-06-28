@@ -25,6 +25,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
+  Users,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -160,6 +161,13 @@ export default function Sidebar() {
               href="/dashboard"
               label="Dashboard"
               isActive={pathname === '/dashboard'}
+              isCollapsed={isCollapsed}
+            />
+            <NavItem
+              icon={Users}
+              href="/profiles"
+              label="Profiles"
+              isActive={pathname === '/profiles' || pathname.startsWith('/profiles/')}
               isCollapsed={isCollapsed}
             />
             <NavItem
