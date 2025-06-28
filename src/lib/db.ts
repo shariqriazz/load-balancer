@@ -68,8 +68,14 @@ async function gracefulShutdown() {
   }
 }
 
-// Register shutdown handlers
-if (typeof process !== 'undefined') {
+// Track if we've already registered shutdown handlers
+let shutdownHandlersRegistered = false;
+
+// Register shutdown handlers only once
+function registerShutdownHandlers() {
+  if (shutdownHandlersRegistered || typeof process === 'undefined') return;
+  
+  shutdownHandlersRegistered = true;
   process.on('SIGINT', gracefulShutdown);
   process.on('SIGTERM', gracefulShutdown);
   process.on('beforeExit', gracefulShutdown);
@@ -161,6 +167,8 @@ export async function getDb(): Promise<Database> {
   
   if (!dbInstance) {
     try {
+      // Register shutdown handlers when first initializing database
+      registerShutdownHandlers();
       dbInstance = await initializeDatabase();
     } catch (error) {
       logError(error, { context: 'getDb initialization' });

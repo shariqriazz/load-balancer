@@ -116,7 +116,13 @@ export class LoadBalancer {
 }
 
 // Cleanup connections periodically to prevent memory leaks
-if (typeof process !== 'undefined') {
+let loadBalancerCleanupRegistered = false;
+
+function initializeLoadBalancerCleanup() {
+  if (loadBalancerCleanupRegistered || typeof process === 'undefined') return;
+  
+  loadBalancerCleanupRegistered = true;
+  
   const cleanupInterval = setInterval(() => {
     // Remove keys with 0 connections to prevent memory leaks
     for (const [keyId, count] of connectionCounts.entries()) {
@@ -130,3 +136,6 @@ if (typeof process !== 'undefined') {
     clearInterval(cleanupInterval);
   });
 }
+
+// Initialize cleanup when module is first used
+initializeLoadBalancerCleanup();

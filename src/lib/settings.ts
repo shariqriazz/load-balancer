@@ -8,10 +8,12 @@ const CACHE_DURATION_MS = 60 * 1000; // Cache settings for 60 seconds
 
 // Cleanup interval to prevent memory leaks
 let cleanupInterval: NodeJS.Timeout | null = null;
+let cleanupRegistered = false;
 
 function startCleanupInterval() {
-  if (cleanupInterval) return;
+  if (cleanupInterval || cleanupRegistered) return;
   
+  cleanupRegistered = true;
   cleanupInterval = setInterval(() => {
     const now = Date.now();
     if (lastReadTime && (now - lastReadTime > CACHE_DURATION_MS * 2)) {
@@ -19,19 +21,19 @@ function startCleanupInterval() {
       lastReadTime = null;
     }
   }, CACHE_DURATION_MS);
+  
+  // Register cleanup handler only once
+  if (typeof process !== 'undefined') {
+    process.on('beforeExit', stopCleanupInterval);
+  }
 }
 
 function stopCleanupInterval() {
   if (cleanupInterval) {
     clearInterval(cleanupInterval);
     cleanupInterval = null;
+    cleanupRegistered = false;
   }
-}
-
-// Start cleanup interval
-if (typeof process !== 'undefined') {
-  startCleanupInterval();
-  process.on('beforeExit', stopCleanupInterval);
 }
 
 // Function to write settings to the database
@@ -79,6 +81,10 @@ async function readSettingsFromDb(): Promise<Settings> {
 // Exported function to read settings (uses cache)
 export async function readSettings(): Promise<Settings> {
     const now = Date.now();
+    
+    // Start cleanup interval on first use
+    startCleanupInterval();
+    
     // Check if cache is valid
     if (cachedSettings && lastReadTime && (now - lastReadTime < CACHE_DURATION_MS)) {
         // console.log('Returning cached settings'); // Optional: for debugging
