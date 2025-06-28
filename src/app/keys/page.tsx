@@ -127,7 +127,10 @@ function KeysPageContent() {
   
   // Dialog states
   const [addKeyDialogOpen, setAddKeyDialogOpen] = useState(false);
+  const [editKeyDialogOpen, setEditKeyDialogOpen] = useState(false);
   const [bulkMoveDialogOpen, setBulkMoveDialogOpen] = useState(false);
+  const [bulkEditDialogOpen, setBulkEditDialogOpen] = useState(false);
+  const [editingKey, setEditingKey] = useState<ApiKey | null>(null);
   const [newKey, setNewKey] = useState({
     key: '',
     name: '',
@@ -244,6 +247,55 @@ function KeysPageContent() {
     }
   };
 
+  const editKey = async () => {
+    if (!editingKey) return;
+    
+    try {
+      const response = await fetch(`/api/admin/keys/${editingKey._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newKey.name || undefined,
+          profile: newKey.profile || undefined,
+          dailyRateLimit: newKey.dailyRateLimit ? parseInt(newKey.dailyRateLimit) : null
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update key');
+      }
+
+      toast({
+        title: "Success",
+        description: "API key updated successfully",
+      });
+
+      setEditKeyDialogOpen(false);
+      setEditingKey(null);
+      setNewKey({ key: '', name: '', profile: '', dailyRateLimit: '', newProfileName: '' });
+      fetchData();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const openEditDialog = (key: ApiKey) => {
+    setEditingKey(key);
+    setNewKey({
+      key: key.key,
+      name: key.name || '',
+      profile: key.profile || '',
+      dailyRateLimit: key.dailyRateLimit?.toString() || '',
+      newProfileName: ''
+    });
+    setEditKeyDialogOpen(true);
+  };
+
   const deleteKey = async (keyId: string) => {
     try {
       const response = await fetch(`/api/admin/keys/${keyId}`, {
@@ -290,6 +342,40 @@ function KeysPageContent() {
 
       setSelectedKeys(new Set());
       setBulkMoveDialogOpen(false);
+      fetchData();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const bulkEditDailyLimit = async (dailyLimit: number | null) => {
+    try {
+      const response = await fetch('/api/admin/keys/bulk', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'setLimit',
+          keyIds: Array.from(selectedKeys),
+          dailyRequestLimit: dailyLimit
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update daily limits');
+      }
+
+      toast({
+        title: "Success",
+        description: `Updated daily limit for ${selectedKeys.size} keys`,
+      });
+
+      setSelectedKeys(new Set());
+      setBulkEditDialogOpen(false);
       fetchData();
     } catch (error: any) {
       toast({
@@ -405,7 +491,15 @@ function KeysPageContent() {
                 <Users className="h-4 w-4 mr-2" />
                 Manage Profiles
               </Button>
-              <Dialog open={addKeyDialogOpen} onOpenChange={setAddKeyDialogOpen}>
+              <Dialog open={addKeyDialogOpen} onOpenChange={(open) => {
+                setAddKeyDialogOpen(open);
+                if (open) {
+                  // Pre-select current profile if viewing a specific profile
+                  if (selectedProfile !== 'all') {
+                    setNewKey(prev => ({ ...prev, profile: selectedProfile }));
+                  }
+                }
+              }}>
                 <DialogTrigger asChild>
                   <Button>
                     <Plus className="h-4 w-4 mr-2" />
@@ -581,6 +675,14 @@ function KeysPageContent() {
                   <Move className="h-4 w-4 mr-2" />
                   Move to Profile
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setBulkEditDialogOpen(true)}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Limits
+                </Button>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="outline" size="sm">
@@ -676,7 +778,7 @@ function KeysPageContent() {
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
-                                    <DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => openEditDialog(key)}>
                                       <Edit className="h-4 w-4 mr-2" />
                                       Edit
                                     </DropdownMenuItem>
@@ -793,7 +895,7 @@ function KeysPageContent() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openEditDialog(key)}>
                                   <Edit className="h-4 w-4 mr-2" />
                                   Edit
                                 </DropdownMenuItem>
@@ -837,6 +939,68 @@ function KeysPageContent() {
             </div>
           )}
 
+          {/* Edit Key Dialog */}
+          <Dialog open={editKeyDialogOpen} onOpenChange={setEditKeyDialogOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Edit API Key</DialogTitle>
+                <DialogDescription>
+                  Update the key details and settings
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="edit-name">Name</Label>
+                  <Input
+                    id="edit-name"
+                    value={newKey.name}
+                    onChange={(e) => setNewKey({ ...newKey, name: e.target.value })}
+                    placeholder="Descriptive name for this key"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-profile">Profile</Label>
+                  <Select value={newKey.profile} onValueChange={(value) => setNewKey({ ...newKey, profile: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a profile" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {profiles.map((profile) => (
+                        <SelectItem key={profile.name} value={profile.name}>
+                          <div className="flex items-center space-x-2">
+                            <div 
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: profile.color }}
+                            />
+                            <span>{profile.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="edit-dailyLimit">Daily Rate Limit</Label>
+                  <Input
+                    id="edit-dailyLimit"
+                    type="number"
+                    value={newKey.dailyRateLimit}
+                    onChange={(e) => setNewKey({ ...newKey, dailyRateLimit: e.target.value })}
+                    placeholder="e.g., 1000 (leave empty for no limit)"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEditKeyDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={editKey}>
+                  Update Key
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
           {/* Bulk Move Dialog */}
           <Dialog open={bulkMoveDialogOpen} onOpenChange={setBulkMoveDialogOpen}>
             <DialogContent>
@@ -870,6 +1034,49 @@ function KeysPageContent() {
               <DialogFooter>
                 <Button variant="outline" onClick={() => setBulkMoveDialogOpen(false)}>
                   Cancel
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Bulk Edit Daily Limits Dialog */}
+          <Dialog open={bulkEditDialogOpen} onOpenChange={setBulkEditDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit Daily Limits</DialogTitle>
+                <DialogDescription>
+                  Set daily rate limit for {selectedKeys.size} selected keys
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="bulk-daily-limit">Daily Rate Limit</Label>
+                  <Input
+                    id="bulk-daily-limit"
+                    type="number"
+                    placeholder="e.g., 1000 (leave empty to remove limit)"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const value = (e.target as HTMLInputElement).value;
+                        bulkEditDailyLimit(value ? parseInt(value) : null);
+                      }
+                    }}
+                  />
+                  <div className="text-sm text-muted-foreground mt-1">
+                    Leave empty to remove daily limits from selected keys
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setBulkEditDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={() => {
+                  const input = document.getElementById('bulk-daily-limit') as HTMLInputElement;
+                  const value = input?.value;
+                  bulkEditDailyLimit(value ? parseInt(value) : null);
+                }}>
+                  Update Limits
                 </Button>
               </DialogFooter>
             </DialogContent>
