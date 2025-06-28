@@ -64,7 +64,6 @@ export async function POST(request: NextRequest) {
       maxRetries: validateNumber(body.maxRetries, currentSettings.maxRetries, 0, 10),
       endpoint: validateEndpoint(body.endpoint, currentSettings.endpoint),
       failoverDelay: validateNumber(body.failoverDelay, currentSettings.failoverDelay, 0, 60),
-      enableGoogleGrounding: typeof body.enableGoogleGrounding === 'boolean' ? body.enableGoogleGrounding : currentSettings.enableGoogleGrounding,
       loadBalancingStrategy: validateLoadBalancingStrategy(body.loadBalancingStrategy, currentSettings.loadBalancingStrategy),
       requestRateLimit: validateNumber(body.requestRateLimit, currentSettings.requestRateLimit, 0, 1000),
     };

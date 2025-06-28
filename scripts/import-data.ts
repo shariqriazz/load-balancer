@@ -41,7 +41,6 @@ interface OldSettings {
   endpoint?: string;
   failoverDelay?: number;
   // New field in the current schema
-  enableGoogleGrounding?: boolean;
 }
 
 interface ImportData {
@@ -86,9 +85,6 @@ async function importData(filePath: string) {
             ...DEFAULT_SETTINGS,                // Default values for any missing fields
             ...importData.settings,             // Imported settings
             ...currentSettings,                 // Current settings take priority
-            enableGoogleGrounding: currentSettings.enableGoogleGrounding ?? 
-                                   importData.settings.enableGoogleGrounding ?? 
-                                   DEFAULT_SETTINGS.enableGoogleGrounding
           };
           
           await db.run(
@@ -101,7 +97,6 @@ async function importData(filePath: string) {
           const newSettings = {
             ...DEFAULT_SETTINGS,
             ...importData.settings,
-            enableGoogleGrounding: importData.settings.enableGoogleGrounding ?? DEFAULT_SETTINGS.enableGoogleGrounding
           };
           
           await db.run(

@@ -6,8 +6,162 @@ import { readSettings } from '@/lib/settings';
 import { v4 as uuidv4 } from 'uuid';
 import { RequestLog } from '@/lib/models/RequestLog';
 import { LoadBalancer } from '@/lib/services/loadBalancer';
-async function handleStreamingResponse(axiosResponse: any, res: any) {
+
+// Tool extraction function to convert XML-style tools to OpenAI format
+function extractToolsFromSystemMessage(systemContent: string): any[] {
+  const tools: any[] = [];
+  
+  // Pattern to match tool definitions in the system message
+  // Looking for ## tool_name followed by description and parameters
+  const toolPattern = /## (\w+)\s*\n([\s\S]*?)(?=\n## |\n# |$)/g;
+  const matches = systemContent.matchAll(toolPattern);
+  
+  for (const match of matches) {
+    const toolName = match[1];
+    const toolDescription = match[2];
+    
+    // Extract description
+    const descMatch = toolDescription.match(/Description:\s*([^\n]+)/);
+    const description = descMatch ? descMatch[1].trim() : `Tool: ${toolName}`;
+    
+    // Extract parameters
+    const parameters: any = {
+      type: "object",
+      properties: {},
+      required: []
+    };
+    
+    // Look for Parameters section
+    const paramSection = toolDescription.match(/Parameters:\s*\n([\s\S]*?)(?=\nUsage:|$)/);
+    if (paramSection) {
+      const paramText = paramSection[1];
+      // Extract parameter definitions like "- param_name: (required) description"
+      const paramMatches = paramText.matchAll(/- (\w+):\s*(\(required\))?\s*([^\n]+)/g);
+      
+      for (const paramMatch of paramMatches) {
+        const paramName = paramMatch[1];
+        const isRequired = !!paramMatch[2];
+        const paramDesc = paramMatch[3].trim();
+        
+        parameters.properties[paramName] = {
+          type: "string",
+          description: paramDesc
+        };
+        
+        if (isRequired) {
+          parameters.required.push(paramName);
+        }
+      }
+    }
+    
+    // Create OpenAI-compatible tool definition
+    const tool = {
+      type: "function",
+      function: {
+        name: toolName,
+        description: description,
+        parameters: parameters
+      }
+    };
+    
+    tools.push(tool);
+  }
+  
+  return tools;
+}
+
+// Function to convert JSON tool calls back to XML format
+function convertToolCallsToXML(content: string): string {
+  let processedContent = content;
+  
+  // Pattern 1: Standard OpenAI tool call format
+  const openAIPattern = /```json\s*\{\s*"name":\s*"([^"]+)",\s*"parameters":\s*(\{[^}]*\})\s*\}\s*```/g;
+  processedContent = processedContent.replace(openAIPattern, (match, toolName, parametersJson) => {
+    try {
+      const parameters = JSON.parse(parametersJson);
+      return formatAsXML(toolName, parameters);
+    } catch (error) {
+      return match;
+    }
+  });
+  
+  // Pattern 2: Function call format that Gemini might use
+  const functionCallPattern = /\{\s*"function_call":\s*\{\s*"name":\s*"([^"]+)",\s*"arguments":\s*"([^"]+)"\s*\}\s*\}/g;
+  processedContent = processedContent.replace(functionCallPattern, (match, toolName, argumentsJson) => {
+    try {
+      const parameters = JSON.parse(argumentsJson);
+      return formatAsXML(toolName, parameters);
+    } catch (error) {
+      return match;
+    }
+  });
+  
+  // Pattern 3: Direct JSON object with tool info
+  const directJsonPattern = /\{\s*"tool":\s*"([^"]+)",\s*"parameters":\s*(\{[^}]*\})\s*\}/g;
+  processedContent = processedContent.replace(directJsonPattern, (match, toolName, parametersJson) => {
+    try {
+      const parameters = JSON.parse(parametersJson);
+      return formatAsXML(toolName, parameters);
+    } catch (error) {
+      return match;
+    }
+  });
+  
+  return processedContent;
+}
+
+// Helper function to format parameters as XML
+function formatAsXML(toolName: string, parameters: any): string {
+  let xmlContent = `<${toolName}>`;
+  
+  // Convert each parameter to XML format
+  for (const [key, value] of Object.entries(parameters)) {
+    if (typeof value === 'object' && value !== null) {
+      // Handle nested objects
+      xmlContent += `\n<${key}>`;
+      for (const [nestedKey, nestedValue] of Object.entries(value)) {
+        xmlContent += `\n  <${nestedKey}>${nestedValue}</${nestedKey}>`;
+      }
+      xmlContent += `\n</${key}>`;
+    } else {
+      xmlContent += `\n<${key}>${value}</${key}>`;
+    }
+  }
+  
+  xmlContent += `\n</${toolName}>`;
+  return xmlContent;
+}
+
+// Function to process streaming response and convert tool calls
+function processStreamingChunk(chunk: string, requestId: string): string {
+  // Look for tool calls in streaming chunks and convert them
+  return convertToolCallsToXML(chunk);
+}
+
+// Function to clean system message by removing tool definitions
+function cleanSystemMessage(systemContent: string): string {
+  // Find the TOOL USE section and remove everything from there until the final ====
+  const toolSectionStart = systemContent.indexOf('TOOL USE');
+  if (toolSectionStart === -1) {
+    return systemContent; // No TOOL USE section found
+  }
+  
+  // Find the last ==== section which should contain final instructions
+  const lastSeparatorIndex = systemContent.lastIndexOf('====');
+  
+  if (lastSeparatorIndex > toolSectionStart) {
+    // Keep everything before TOOL USE and everything after the last ====
+    const beforeTools = systemContent.substring(0, toolSectionStart).trim();
+    const afterTools = systemContent.substring(lastSeparatorIndex);
+    return beforeTools + '\n\n' + afterTools;
+  } else {
+    // No final section, just remove everything from TOOL USE onwards
+    return systemContent.substring(0, toolSectionStart).trim();
+  }
+}
+async function handleStreamingResponse(axiosResponse: any, res: any, requestId: string) {
   const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
   let isAborted = false;
   
   const stream = new ReadableStream({
@@ -17,7 +171,15 @@ async function handleStreamingResponse(axiosResponse: any, res: any) {
           if (isAborted) {
             break;
           }
-          controller.enqueue(encoder.encode(chunk));
+          
+          // Decode the chunk to process it
+          const chunkText = decoder.decode(chunk, { stream: true });
+          
+          // Process the chunk to convert any tool calls from JSON to XML
+          const processedChunk = processStreamingChunk(chunkText, requestId);
+          
+          // Re-encode and send
+          controller.enqueue(encoder.encode(processedChunk));
         }
       } catch (error) {
         if (!isAborted) {
@@ -80,14 +242,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Fetch settings to get maxRetries, endpoint, and grounding settings
+  // Fetch settings to get maxRetries, endpoint
   const settings = await readSettings();
   const maxRetries = settings.maxRetries || 3;
   const baseEndpoint = settings.endpoint || 'https://generativelanguage.googleapis.com/v1beta/openai';
-  const enableGoogleGrounding = settings.enableGoogleGrounding || false;
   
-  // Check if using Google API and grounding is enabled
-  const isGoogleAPI = baseEndpoint.includes('generativelanguage.googleapis.com');
   
   console.log('Using endpoint for chat completions:', baseEndpoint);
 
@@ -136,10 +295,40 @@ export async function POST(req: NextRequest) {
     timestamp: new Date().toISOString()
   });
 
+
   let apiKeyIdForAttempt: string | null = null; // Store the ID used for the current attempt
   
   // Create a copy of the original body to use for the request - moved outside of try block
   let requestBody = JSON.parse(JSON.stringify(body));
+
+  // Extract tools from system message if no tools array is present
+  if (!requestBody.tools || requestBody.tools.length === 0) {
+    const systemMessage = requestBody.messages?.find((msg: any) => msg.role === 'system');
+    if (systemMessage?.content) {
+      const extractedTools = extractToolsFromSystemMessage(systemMessage.content);
+      
+      if (extractedTools.length > 0) {
+        
+        // Try different approaches based on the model
+        const isGeminiModel = requestBody.model?.includes('gemini');
+        
+        if (isGeminiModel) {
+          // For Gemini, keep tools in system message but add a clear instruction
+          const toolInstruction = `\n\nIMPORTANT: When you need to perform actions, you MUST use the tools provided above. Format your tool calls exactly as shown in the examples using XML tags like <tool_name><parameter>value</parameter></tool_name>.`;
+          systemMessage.content = systemMessage.content + toolInstruction;
+          
+        } else {
+          // For other models, try the OpenAI function calling approach
+          requestBody.tools = extractedTools;
+          requestBody.tool_choice = "auto";
+          
+          // Clean the system message by removing tool definitions
+          const cleanedContent = cleanSystemMessage(systemMessage.content);
+          systemMessage.content = cleanedContent;
+        }
+      }
+    }
+  }
 
   while (retryCount < maxRetries) {
     try {
@@ -156,52 +345,13 @@ export async function POST(req: NextRequest) {
         validateStatus: (status: number) => status < 500 || status === 503, // Don't throw on client errors
       };
       
-      // Modify the request body to include Google Search grounding if enabled AND only for Google API
-      if (isGoogleAPI && enableGoogleGrounding) {
-        // Add tools array with Google Search grounding if not already present
-        if (!requestBody.tools) {
-          requestBody.tools = [];
-        }
 
-        // Check if grounding is already requested
-        const isGroundingRequested = requestBody.tools.some((tool: any) => 
-          tool.googleSearchRetrieval || tool.googleSearch
-        );
-
-        // For Gemini models, we don't need to explicitly add the search tool
-        // as it's handled implicitly by the model
-        const isGeminiModel = requestBody.model?.includes('gemini');
-        
-        if (isGeminiModel) {
-          console.log('Gemini model detected - search grounding handled implicitly by the model');
-          // Clear any existing tools as they're not needed for Gemini
-          requestBody.tools = [];
-        } else {
-          // For non-Gemini models (like older Vertex AI models)
-          if (isGroundingRequested && requestBody.tools.length > 1) {
-            console.warn("Grounding requested with other tools; keeping only search.");
-            requestBody.tools = requestBody.tools.filter((tool: any) => 
-              tool.googleSearchRetrieval || tool.googleSearch
-            );
-          }
-
-          // If no grounding tool is present, add googleSearchRetrieval
-          if (!isGroundingRequested) {
-            requestBody.tools = [{
-              "googleSearchRetrieval": {}
-            }];
-            console.log('Added Google Search grounding for non-Gemini model:', JSON.stringify(requestBody.tools));
-          }
-        }
-        
-        // Always set tool_choice to auto when using grounding
-        requestBody.tool_choice = "auto";
-      }
 
       // Add responseType: 'stream' for streaming requests
       if (isStreaming) {
         axiosConfig.responseType = 'stream';
       }
+
 
       const response = await axios.post(
         `${baseEndpoint}/chat/completions`,
@@ -218,14 +368,6 @@ export async function POST(req: NextRequest) {
       // Log successful response
       const responseTime = Date.now() - startTime;
       
-      // Log Google Search grounding usage in successful responses
-      if (isGoogleAPI && enableGoogleGrounding) {
-        requestLogger.info('Used Google Search grounding', {
-          requestId,
-          model: requestBody?.model,
-          responseTime
-        });
-      }
       
       // Log success to DB
       await RequestLog.create({
@@ -239,11 +381,21 @@ export async function POST(req: NextRequest) {
 
       // Handle streaming response differently
       if (isStreaming) {
-        return handleStreamingResponse(response, null);
+        return handleStreamingResponse(response, null, requestId);
       }
 
-      return NextResponse.json(response.data);
+      // For non-streaming responses, convert tool calls in the response
+      const responseData = response.data;
+      
+      if (responseData?.choices?.[0]?.message?.content) {
+        const originalContent = responseData.choices[0].message.content;
+        const convertedContent = convertToolCallsToXML(originalContent);
+        responseData.choices[0].message.content = convertedContent;
+      }
+
+      return NextResponse.json(responseData);
     } catch (error: any) {
+
       const isRateLimit = await keyManager.markKeyError(error);
 
       // Only retry on rate limits or server errors

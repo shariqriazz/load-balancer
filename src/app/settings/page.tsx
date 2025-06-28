@@ -24,7 +24,6 @@ interface Settings {
   logRetentionDays: number;
   endpoint: string;
   failoverDelay: number;
-  enableGoogleGrounding: boolean;
 }
 
 interface ApiEndpoint {
@@ -79,7 +78,6 @@ export default function SettingsPage() {
     logRetentionDays: 14,
     endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai',
     failoverDelay: 2,
-    enableGoogleGrounding: false,
   });
 
   const [isLoading, setIsLoading] = useState(true);
@@ -691,27 +689,6 @@ export default function SettingsPage() {
                           </div>
                         </div>
                         
-                        {/* Google Search Grounding toggle - only enabled for Google endpoint */}
-                        {settings.endpoint.includes('generativelanguage.googleapis.com') && (
-                          <div className="grid items-center grid-cols-4 gap-4">
-                            <Label htmlFor="enableGoogleGrounding" className="text-right">
-                              Google Search Grounding
-                            </Label>
-                            <div className="col-span-3 flex items-center space-x-2">
-                              <Switch
-                                id="enableGoogleGrounding"
-                                checked={settings.enableGoogleGrounding}
-                                onCheckedChange={(checked) => handleInputChange('enableGoogleGrounding', checked)}
-                              />
-                              <span>
-                                {settings.enableGoogleGrounding ? 'Enabled' : 'Disabled'}
-                              </span>
-                              <div className="ml-6 text-xs text-muted-foreground">
-                                <p>Uses Google Search to enhance responses with up-to-date information</p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </div>
                   )}

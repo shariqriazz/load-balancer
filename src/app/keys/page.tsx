@@ -75,7 +75,8 @@ import {
   EyeOff,
   ChevronDown,
   Users,
-  ArrowRight
+  ArrowRight,
+  RotateCcw
 } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -314,6 +315,29 @@ function KeysPageContent() {
       toast({
         title: "Error",
         description: "Failed to delete key",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const reactivateKey = async (keyId: string) => {
+    try {
+      const response = await fetch(`/api/admin/keys/${keyId}`, {
+        method: 'PATCH'
+      });
+
+      if (!response.ok) throw new Error('Failed to reactivate key');
+
+      toast({
+        title: "Success",
+        description: "API key reactivated successfully",
+      });
+
+      fetchData();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to reactivate key",
         variant: "destructive",
       });
     }
@@ -903,6 +927,18 @@ function KeysPageContent() {
                                   <Move className="h-4 w-4 mr-2" />
                                   Move to Profile
                                 </DropdownMenuItem>
+                                {!key.isActive && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem 
+                                      className="text-green-600"
+                                      onClick={() => reactivateKey(key._id)}
+                                    >
+                                      <RotateCcw className="h-4 w-4 mr-2" />
+                                      Reactivate
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem 
                                   className="text-red-600"
