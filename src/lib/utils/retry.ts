@@ -56,7 +56,7 @@ export async function retryWithBackoff<T>(
         opts.maxDelay
       );
 
-      console.warn(`Operation failed (attempt ${attempt}/${opts.maxAttempts}), retrying in ${delay}ms:`, error.message);
+      console.warn(`Operation failed (attempt ${attempt}/${opts.maxAttempts}), retrying in ${delay}ms:`, error instanceof Error ? error.message : String(error));
 
       // Wait before retrying
       await new Promise(resolve => setTimeout(resolve, delay));

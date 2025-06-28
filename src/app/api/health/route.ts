@@ -3,9 +3,30 @@ import { getDb } from '@/lib/db';
 import { ApiKey } from '@/lib/models/ApiKey';
 import { readSettings } from '@/lib/settings';
 
+interface HealthCheck {
+  status: string;
+  responseTime: number;
+  error?: string;
+  count?: number;
+  activeCount?: number;
+}
+
+interface HealthStatus {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  timestamp: string;
+  version: string;
+  uptime: number;
+  checks: {
+    database: HealthCheck;
+    settings: HealthCheck;
+    apiKeys: HealthCheck;
+  };
+  responseTime: number;
+}
+
 export async function GET() {
   const startTime = Date.now();
-  const health = {
+  const health: HealthStatus = {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     version: process.env.npm_package_version || '1.0.0',
@@ -13,7 +34,7 @@ export async function GET() {
     checks: {
       database: { status: 'unknown', responseTime: 0 },
       settings: { status: 'unknown', responseTime: 0 },
-      apiKeys: { status: 'unknown', count: 0, activeCount: 0 },
+      apiKeys: { status: 'unknown', responseTime: 0, count: 0, activeCount: 0 },
     },
     responseTime: 0,
   };
@@ -48,7 +69,7 @@ export async function GET() {
     health.status = 'degraded';
     health.checks.settings = {
       status: 'unhealthy',
-      responseTime: Date.now() - settingsStart,
+      responseTime: Date.now() - startTime,
       error: error instanceof Error ? error.message : 'Unknown settings error',
     };
   }

@@ -70,7 +70,7 @@ export class ApiKey implements ApiKeyData {
     
     for (const [key, value] of Object.entries(query)) {
       if (validFields.includes(key) && value !== undefined) {
-        sanitizedQuery[key as keyof ApiKeyData] = value;
+        (sanitizedQuery as any)[key] = value;
       }
     }
     

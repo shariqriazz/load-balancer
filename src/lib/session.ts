@@ -1,5 +1,4 @@
 import { SessionOptions } from 'iron-session';
-import { createHash, pbkdf2Sync } from 'crypto';
 import { ENV_CONFIG } from './env-validation';
 
 // Define the structure of your session data
@@ -14,11 +13,23 @@ const adminPassword = ENV_CONFIG.ADMIN_PASSWORD;
 
 // Derive a proper encryption key from the admin password
 const salt = 'load-balancer-session-salt'; // In production, use a random salt stored securely
-const sessionEncryptionPassword = pbkdf2Sync(adminPassword, salt, 100000, 32, 'sha256').toString('hex');
+let sessionEncryptionPassword: string;
+let passwordHash: string;
+
+// Initialize crypto functions server-side only
+if (typeof window === 'undefined') {
+  const { createHash, pbkdf2Sync } = require('crypto');
+  sessionEncryptionPassword = pbkdf2Sync(adminPassword, salt, 100000, 32, 'sha256').toString('hex');
+  passwordHash = createHash('sha256').update(adminPassword).digest('hex');
+} else {
+  // Client-side fallback (should not be used)
+  sessionEncryptionPassword = adminPassword;
+  passwordHash = adminPassword;
+}
 
 // Create a hash of the admin password for session validation
 export const getPasswordHash = () => {
-  return createHash('sha256').update(adminPassword).digest('hex');
+  return passwordHash;
 };
 
 export const sessionOptions: SessionOptions = {
