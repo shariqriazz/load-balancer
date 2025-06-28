@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getIronSession } from 'iron-session';
-import { sessionOptions, SessionData, getPasswordHash } from '@/lib/session';
+import { sessionOptions, SessionData } from '@/lib/session';
 import { cookies } from 'next/headers';
 
 // Paths that do not require authentication
@@ -49,9 +49,8 @@ export async function middleware(request: NextRequest) {
   if (requireAdminLogin) {
     const session = await getIronSession<SessionData>(cookies(), sessionOptions);
 
-    // Validate session integrity
+    // Basic session validation (detailed validation happens in API routes)
     const isValidSession = session.isLoggedIn && 
-                          session.passwordHash === getPasswordHash() &&
                           session.loginTime &&
                           (Date.now() - session.loginTime) < (7 * 24 * 60 * 60 * 1000); // 7 days max
 

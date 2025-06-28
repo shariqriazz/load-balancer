@@ -11,37 +11,26 @@ export interface SessionData {
 // Use validated ADMIN_PASSWORD for session encryption
 const adminPassword = ENV_CONFIG.ADMIN_PASSWORD;
 
-// Derive a proper encryption key from the admin password
-const salt = 'load-balancer-session-salt'; // In production, use a random salt stored securely
-let sessionEncryptionPassword: string;
-let passwordHash: string;
-
-// Initialize crypto functions server-side only
-if (typeof window === 'undefined') {
-  const { createHash, pbkdf2Sync } = require('crypto');
-  sessionEncryptionPassword = pbkdf2Sync(adminPassword, salt, 100000, 32, 'sha256').toString('hex');
-  passwordHash = createHash('sha256').update(adminPassword).digest('hex');
-} else {
-  // Client-side fallback (should not be used)
-  sessionEncryptionPassword = adminPassword;
-  passwordHash = adminPassword;
-}
-
-// Create a hash of the admin password for session validation
-export const getPasswordHash = () => {
-  return passwordHash;
-};
-
+// Simple session options that work in edge runtime
 export const sessionOptions: SessionOptions = {
-  password: sessionEncryptionPassword,
-  cookieName: 'lb-admin-session', // Changed cookie name for clarity
-  // secure: true should be used in production (HTTPS)
+  password: adminPassword, // Use admin password directly for edge runtime compatibility
+  cookieName: 'lb-admin-session',
   cookieOptions: {
     secure: process.env.NODE_ENV === 'production',
     maxAge: 60 * 60 * 24 * 7, // 1 week
     httpOnly: true,
     sameSite: 'lax',
   },
+};
+
+// Server-side crypto functions (only used in API routes, not middleware)
+export const getPasswordHash = () => {
+  if (typeof window !== 'undefined') {
+    throw new Error('getPasswordHash should only be called server-side');
+  }
+  
+  const { createHash } = require('crypto');
+  return createHash('sha256').update(adminPassword).digest('hex');
 };
 
 // Augment the IronSessionData interface to include our SessionData structure
