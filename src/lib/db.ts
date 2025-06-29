@@ -143,6 +143,31 @@ async function initializeDatabase(): Promise<Database> {
     );
   `);
 
+  // Create profiles table if it doesn't exist
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS profiles (
+      name TEXT PRIMARY KEY,
+      description TEXT,
+      color TEXT DEFAULT '#6366f1',
+      icon TEXT DEFAULT 'key',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  // Initialize default profile if none exists
+  const defaultProfile = await db.get('SELECT name FROM profiles WHERE name = ?', 'default');
+  if (!defaultProfile) {
+    await db.run(
+      'INSERT INTO profiles (name, description, color, icon) VALUES (?, ?, ?, ?)',
+      'default',
+      'Default profile for unassigned API keys',
+      '#6366f1',
+      'key'
+    );
+    console.log('Initialized default profile in the database.');
+  }
+
   // Create indexes for faster querying
   await db.exec(`CREATE INDEX IF NOT EXISTS idx_request_logs_timestamp ON request_logs (timestamp);`);
   await db.exec(`CREATE INDEX IF NOT EXISTS idx_request_logs_apiKeyId ON request_logs (apiKeyId);`);

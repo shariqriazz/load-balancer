@@ -24,3 +24,4 @@ bun.lock
 package-lock.json
 /docs
 tsconfig.tsbuildinfo
+.agent.md

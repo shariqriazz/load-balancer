@@ -27,10 +27,28 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+interface Profile {
+  name: string;
+  description: string;
+  color: string;
+  icon: string;
+  keyCount: number;
+  activeKeys: number;
+  rateLimitedKeys: number;
+  inactiveKeys: number;
+  totalRequests: number;
+  dailyRequestsUsed: number;
+  avgDailyLimit: number | null;
+  lastUsed: string | null;
+  isDefault: boolean;
+}
+
 export default function Dashboard() {
   const [timeRange, setTimeRange] = useState("24h");
   const [isLoading, setIsLoading] = useState(true);
+  const [profilesLoading, setProfilesLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
   const [stats, setStats] = useState({
     totalKeys: 0,
     activeKeys: 0,
@@ -95,9 +113,30 @@ export default function Dashboard() {
     }
   };
 
+  const fetchProfiles = async () => {
+    setProfilesLoading(true);
+    try {
+      const response = await fetch('/api/admin/profiles');
+      if (!response.ok) {
+        throw new Error(`Error fetching profiles: ${response.statusText}`);
+      }
+      const profilesData = await response.json();
+      setProfiles(profilesData);
+    } catch (err: any) {
+      console.error('Error fetching profiles:', err);
+      // Don't show toast for profile errors, just log them
+    } finally {
+      setProfilesLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchStats();
   }, [timeRange]);
+
+  useEffect(() => {
+    fetchProfiles();
+  }, []);
 
   const formatNumber = (value: number | undefined | null): string => {
     if (value === undefined || value === null || isNaN(value)) {
@@ -285,19 +324,91 @@ export default function Dashboard() {
                     </CardTitle>
                     <CardDescription>API key organization and load balancing profiles</CardDescription>
                   </div>
-                  <Button variant="outline" onClick={() => window.location.href = '/profiles'}>
-                    Manage Profiles
-                    <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
+                  <div className="flex space-x-2">
+                    <Button variant="outline" size="sm" onClick={fetchProfiles} disabled={profilesLoading}>
+                      <RefreshCw className={cn("h-4 w-4", profilesLoading && "animate-spin")} />
+                    </Button>
+                    <Button variant="outline" onClick={() => window.location.href = '/profiles'}>
+                      Manage Profiles
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {/* This will be populated with profile data */}
-                  <div className="text-center text-muted-foreground py-8">
-                    <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">Profile data loading...</p>
-                  </div>
+                  {profilesLoading ? (
+                    <div className="text-center text-muted-foreground py-8 col-span-full">
+                      <Loader2 className="h-8 w-8 mx-auto mb-2 opacity-50 animate-spin" />
+                      <p className="text-sm">Loading profiles...</p>
+                    </div>
+                  ) : profiles.length === 0 ? (
+                    <div className="text-center text-muted-foreground py-8 col-span-full">
+                      <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No profiles found</p>
+                      <p className="text-xs mt-1">Create your first profile to organize API keys</p>
+                    </div>
+                  ) : (
+                    profiles.map((profile) => (
+                      <Card key={profile.name} className="border border-border/50 hover:border-border transition-colors">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center space-x-2">
+                              <div 
+                                className="w-3 h-3 rounded-full" 
+                                style={{ backgroundColor: profile.color }}
+                              />
+                              <h3 className="font-medium text-sm">
+                                {profile.name}
+                                {profile.isDefault && (
+                                  <span className="ml-2 text-xs text-muted-foreground">(Default)</span>
+                                )}
+                              </h3>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2 text-xs">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Total Keys:</span>
+                              <span className="font-medium">{profile.keyCount}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Active:</span>
+                              <span className="font-medium text-green-600">{profile.activeKeys}</span>
+                            </div>
+                            {profile.rateLimitedKeys > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Rate Limited:</span>
+                                <span className="font-medium text-yellow-600">{profile.rateLimitedKeys}</span>
+                              </div>
+                            )}
+                            {profile.inactiveKeys > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Inactive:</span>
+                                <span className="font-medium text-red-600">{profile.inactiveKeys}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Total Requests:</span>
+                              <span className="font-medium">{formatNumber(profile.totalRequests)}</span>
+                            </div>
+                            {profile.dailyRequestsUsed > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Today:</span>
+                                <span className="font-medium">{formatNumber(profile.dailyRequestsUsed)}</span>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {profile.description && (
+                            <p className="text-xs text-muted-foreground mt-3 line-clamp-2">
+                              {profile.description}
+                            </p>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>
