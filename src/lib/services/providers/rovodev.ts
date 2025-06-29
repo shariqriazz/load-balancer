@@ -72,8 +72,8 @@ interface RovoDevError {
 
 export class RovoDevProvider {
   private baseUrl = 'https://api.atlassian.com';
-  private chatEndpoint = '/ai-gateway/v1/chat/completions'; // Try AI Gateway endpoint
-  private usageEndpoint = '/rovodev/v2/credits/check';
+  private chatEndpoint = '/rovodev/v2/chat/completions'; // Discovered working path
+  private usageEndpoint = '/rovodev/v2/credits/check'; // Confirmed working
 
   constructor() {}
 
@@ -88,7 +88,7 @@ export class RovoDevProvider {
 
   // Build authentication headers for RovoDev API
   private buildHeaders(rovoDevKey: RovoDevKey): Record<string, string> {
-    // RovoDev uses Basic Auth with base64 encoded email:token
+    // RovoDev uses Basic Auth with base64 encoded email:token (confirmed working)
     const credentials = Buffer.from(`${rovoDevKey.email}:${rovoDevKey.apiToken}`).toString('base64');
     
     return {
