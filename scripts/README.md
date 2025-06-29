@@ -2,18 +2,22 @@
 
 This directory contains utility scripts for managing the load balancer.
 
-## Import Script
+## Database Migration Script
 
-The `import-data.ts` script allows you to import API keys, request logs, and settings from a JSON file.
+The `migrate-json-to-db.js` script helps migrate data from legacy JSON files to the SQLite database.
 
 ### Features
 
-- **Preserves existing data**: Won't overwrite existing API keys or settings
+- **Safe Migration**: Migrates data from old `keys.json` and `settings.json` files
+- **Preserves existing data**: Won't overwrite existing database entries
+- **Transaction-based**: Uses database transactions for data integrity
 - **Handles missing fields**: Automatically adds new schema fields
-- **Validates data**: Ensures imported data matches the expected format
-- **Safe operation**: Uses database transactions for data integrity
 
-The script ensures all imported data is compatible with the current schema.
+### How to run
+
+```bash
+bun run migrate:db
+```
 
 ## Generate Environment Script
 
