@@ -354,7 +354,7 @@ export default function ProfilesPage() {
                             <AlertDialogHeader>
                               <AlertDialogTitle>Delete Profile</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Are you sure you want to delete the "{profile.name}" profile? 
+                                Are you sure you want to delete the &quot;{profile.name}&quot; profile? 
                                 This action cannot be undone. All keys must be moved to other profiles first.
                               </AlertDialogDescription>
                             </AlertDialogHeader>

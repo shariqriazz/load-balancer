@@ -39,7 +39,7 @@ function validateNodeEnv(value: string | undefined): 'development' | 'production
   return 'development';
 }
 
-export function validateEnvironment(): EnvConfig {
+function validateEnvironment(): EnvConfig {
   try {
     const config: EnvConfig = {
       ADMIN_PASSWORD: validateEnvVar('ADMIN_PASSWORD', process.env.ADMIN_PASSWORD, true),

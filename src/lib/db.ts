@@ -204,7 +204,7 @@ export async function getDb(): Promise<Database> {
 }
 
 // Function to safely close database connection
-export async function closeDb(): Promise<void> {
+async function closeDb(): Promise<void> {
   await gracefulShutdown();
 }
 

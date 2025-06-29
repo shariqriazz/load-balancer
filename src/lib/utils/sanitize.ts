@@ -31,7 +31,7 @@ export const sanitizeRequest = (request: any) => {
 /**
  * Masks an API key for display, showing only the first few and last few characters
  */
-export const maskApiKey = (key: string): string => {
+const maskApiKey = (key: string): string => {
   if (!key || key.length < 10) return 'INVALID_KEY';
   
   const firstPart = key.substring(0, 6);
@@ -43,7 +43,7 @@ export const maskApiKey = (key: string): string => {
 /**
  * Sanitizes response data to remove sensitive information
  */
-export const sanitizeResponse = (response: any) => {
+const sanitizeResponse = (response: any) => {
   const sanitized = { ...response };
   
   // Redact any keys in response data

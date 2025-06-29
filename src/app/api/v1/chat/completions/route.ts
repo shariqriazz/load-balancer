@@ -421,7 +421,7 @@ export async function POST(req: NextRequest) {
         errorType = 'ApiKeyError';
       } else if (statusCode >= 500) {
         errorType = 'UpstreamServerError';
-      } else if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+      } else if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
         errorType = 'UpstreamTimeoutError';
       }
       // Log error to DB (only if not retrying or if it's the last retry attempt)

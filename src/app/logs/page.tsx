@@ -339,7 +339,7 @@ const LogsPage = () => {
                   <Card className="overflow-hidden transition-all duration-300 border-0 shadow-md hover:shadow-lg hover-animate">
                     <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--chart-2)/0.2)] to-transparent opacity-50 pointer-events-none" />
                     <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                      <CardTitle className="text-sm font-medium">Today's Requests</CardTitle>
+                      <CardTitle className="text-sm font-medium">Today&apos;s Requests</CardTitle>
                       <BarChart3 className="w-5 h-5 text-[hsl(var(--chart-2))]" />
                     </CardHeader>
                     <CardContent>
