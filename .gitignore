@@ -25,3 +25,5 @@ package-lock.json
 /docs
 tsconfig.tsbuildinfo
 .agent.md
+storage
+.qdrant-initialized
