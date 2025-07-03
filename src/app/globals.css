@@ -207,8 +207,7 @@ html.dark body {
 /* Style popover and dropdown menus with refined glass morphism */
 [role="menu"],
 [role="listbox"],
-[role="tooltip"],
-[data-radix-popper-content-wrapper] * {
+[role="tooltip"] {
   background-color: rgba(255, 255, 255, 0.85) !important;
   backdrop-filter: blur(16px) !important;
   border: 1px solid rgba(255, 255, 255, 0.5) !important;
@@ -218,8 +217,7 @@ html.dark body {
 
 .dark [role="menu"],
 .dark [role="listbox"],
-.dark [role="tooltip"],
-.dark [data-radix-popper-content-wrapper] * {
+.dark [role="tooltip"] {
   background-color: rgba(35, 38, 45, 0.85) !important;
   backdrop-filter: blur(16px) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
