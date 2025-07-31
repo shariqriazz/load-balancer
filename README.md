@@ -1,6 +1,6 @@
-# Load Balancer
+# Google Gemini Load Balancer
 
-A modern NextJS application that serves as a proxy server for the OpenAI Comptaible API, with key management, load balancing, and a beautiful UI. This application allows you to efficiently manage multiple OpenAI Compatible API keys, automatically rotate between them and to monitor your API usage with detailed statistics.
+A modern NextJS application that serves as a proxy server for Google Gemini AI API, with key management, load balancing, and a beautiful UI. This application allows you to efficiently manage multiple Google AI API keys, automatically rotate between them and to monitor your API usage with detailed statistics.
 
 ![Load Balancer](https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Ftse2.mm.bing.net%2Fth%3Fid%3DOIP.8qJFfRHJ4w1imQm4ATTdcAHaFl%26pid%3DApi&f=1&ipt=967751466c9cf44b0aa649a4db4edd75c0fba31eeac5b92c314a7c161ab215a1&ipo=images)
 
@@ -8,7 +8,7 @@ Thanks to @SannidhyaSah for his contribution to this application
 
 ## Features
 
-- **API Key Management**: Add, remove, and monitor your OpenAI Compatible API keys
+- **API Key Management**: Add, remove, and monitor your Google AI API keys
 - **Load Balancing**: Automatically rotate between multiple API keys to avoid rate limits
 - **Usage Statistics**: Monitor your API usage with detailed charts and metrics
 - **Logs Viewer**: View and search through request, error, and key event logs
@@ -19,14 +19,14 @@ Thanks to @SannidhyaSah for his contribution to this application
 - **Real-time Monitoring**: Live updates of key status and usage metrics
 - **Customizable Settings**: Configure key rotation, rate limits, and more
 - **Import/Export Keys**: Backup and restore your API keys via JSON files.
-- **Configurable API Endpoint**: Set the target OpenAI-compatible API endpoint directly through the UI.
+- **Configurable API Endpoint**: Set the target Google Gemini API endpoint directly through the UI.
 
 ## Architecture
 
 The Load Balancer is built using Next.js App Router, which allows for a unified application that handles both the frontend UI and backend API routes. The application follows a modern architecture:
 
 - **Frontend**: React with Chakra UI and Tailwind CSS for a responsive and accessible interface
-- **Backend**: Next.js API routes that proxy requests to the OpenAI Compatible API
+- **Backend**: Next.js API routes that proxy requests to the Google Gemini API
 - **State Management**: React Context API and SWR for efficient data fetching
 - **Data Storage**: SQLite database (`data/database.db`) for API keys, application settings (including the target API endpoint), and detailed request logs (`request_logs` table). File-based storage for supplementary debugging logs (incoming requests, errors, key events). Statistics are primarily derived from the database.
 - **Styling**: Chakra UI with Tailwind CSS for a consistent design system
@@ -35,23 +35,21 @@ The Load Balancer is built using Next.js App Router, which allows for a unified 
 
 ## Prerequisites
 
-- Node.js 18+ or Bun runtime (Recommended)
+- Bun runtime (Recommended)
 - Git (for version control)
-- A OpenAI Compatible API key (for testing)
+- A Google AI API key (for testing)
 
 ## Installation
 
-Make sure you have Node.js and Bun installed. Then, clone the repository and install the dependencies:
+Make sure you have Bun installed. Then, clone the repository and install the dependencies:
 
 ```bash
 # Clone the repository
 git clone https://github.com/shariqriazz/load-balancer.git
 cd load-balancer
 
-# Install dependencies (choose one)
+# Install dependencies
 bun install
-# OR
-npm install --legacy-peer-deps # Use if you encounter peer dependency issues
 ```
 
 ## Configuration
@@ -82,17 +80,17 @@ MASTER_API_KEY=
 
 Note: The application runs on port 4270 by default. If you need to change the port, you can modify it in the package.json scripts.
 
-Note: OpenAI Comptaible API keys and rotation settings are managed through the UI (stored in the `data/database.db` SQLite database), not directly in the `.env` file.
+Note: Google AI API keys and rotation settings are managed through the UI (stored in the `data/database.db` SQLite database), not directly in the `.env` file.
 
-**Important:** While server-level settings like `PORT` and `ADMIN_PASSWORD` are configured in the `.env` file, application behavior settings, including the target OpenAI-compatible API endpoint, are managed through the UI on the **Settings** page.
+**Important:** While server-level settings like `PORT` and `ADMIN_PASSWORD` are configured in the `.env` file, application behavior settings, including the target Google Gemini API endpoint, are managed through the UI on the **Settings** page.
 
 ### Configuring the API Endpoint
 
-This application allows you to specify the base URL for the downstream OpenAI-compatible API service you want to proxy requests to.
+This application allows you to specify the base URL for the downstream Google Gemini API service you want to proxy requests to.
 
 1.  Navigate to the **Settings** page in the application UI.
 2.  Locate the **API Endpoint Configuration** section.
-3.  Enter the base URL of your desired API (e.g., `https://api.mistral.ai/v1`, `https://api.groq.com/openai/v1`).
+3.  The default Google AI Studio endpoint is pre-configured, or you can enter a custom Gemini-compatible endpoint.
 4.  Click the **Save** button next to the API Endpoint input field.
 5.  **Important:** You must also click the main **Save Settings** button at the bottom of the page to persist the changes.
 
@@ -143,11 +141,6 @@ Development mode with hot reloading:
 ```bash
 # Using Bun (runs on port 4270 by default)
 bun dev
-# OR (using explicit run command)
-# bun run dev
-
-# Using Yarn (runs on default Next.js port, usually 3000)
-yarn yarn:dev
 ```
 
 Production deployment:
@@ -155,38 +148,25 @@ Production deployment:
 ```bash
 # Build the application
 bun build
-# OR (using explicit run command)
-# bun run build
-
-# OR using Yarn
-yarn yarn:build
 
 # Start the production server
-# Using Bun (runs on port 4270 by default)
 bun start
-# OR (using explicit run command)
-# bun run start
-
-# OR using Yarn (runs on default Next.js port, usually 3000)
-yarn yarn:start
 ```
 
-The application will be available at http://localhost:4270 (for Bun) or http://localhost:3000 (for Yarn, or your configured PORT if different).
+The application will be available at http://localhost:4270.
 
 Using PM2 for process management:
 
 ```bash
-# Ensure pm2 is installed globally (e.g., npm install -g pm2 or bun install -g pm2)
+# Ensure pm2 is installed globally
+bun install -g pm2
 
 # Start the application using pm2 with bun
-pm2 start bun --name load-balancer -- start
-
-# OR Start the application using pm2 with npm
-# pm2 start npm --name load-balancer -- run start
+pm2 start bun --name google-gemini-load-balancer -- start
 
 # Monitor the application
-# pm2 list
-# pm2 logs load-balancer
+pm2 list
+pm2 logs google-gemini-load-balancer
 ```
 
 ## Security Considerations
@@ -213,13 +193,13 @@ pm2 start bun --name load-balancer -- start
 To use this load balancer as an API service for your applications:
 
 1. Start the application and access the UI at http://localhost:4270
-2. Go to the "API Keys" section and add your OpenAI Compatible API keys through the UI
+2. Go to the "API Keys" section and add your Google AI API keys through the UI
 3. In your client application, configure the following:
    - Base URL: `http://localhost:4270/api/v1` (or your deployed URL)
    - Authorization Header:
      - If `MASTER_API_KEY` is set in the server's `.env` file, incoming requests to `/api/v1/chat/completions` **must** include the header `Authorization: Bearer <MASTER_API_KEY>`.
-     - If `MASTER_API_KEY` is **not** set (left blank) in the `.env` file, this specific authorization check is skipped. The load balancer will still use its managed OpenAI Comptaible keys for outgoing requests.
-   - Model: Will be automatically populated from the available models
+     - If `MASTER_API_KEY` is **not** set (left blank) in the `.env` file, this specific authorization check is skipped. The load balancer will still use its managed Google AI keys for outgoing requests.
+   - Model: Will be automatically populated from the available Gemini models
 
 Example configuration in your client:
 
@@ -229,107 +209,8 @@ const configuration = {
   // apiKey: "any-string-works", // If MASTER_API_KEY is not set on server
   // OR
   // headers: { Authorization: "Bearer your_secret_master_key_here" } // If MASTER_API_KEY is set on server
-  model: "your-model", // Available models are shown in the dropdown
+  model: "gemini-pro", // Available Gemini models are shown in the dropdown
 };
-```
-
-## Upgrading from Previous Versions
-
-If you're upgrading from a version that used JSON files for storage (keys.json and settings.json) to this version which uses SQLite database, follow these steps to ensure a smooth upgrade:
-
-### Step 1: Update Your Code
-
-First, update your local repository to get the latest code:
-
-```bash
-# Navigate to your project directory
-cd path/to/load-balancer
-
-# Pull the latest changes from the repository
-git pull origin main
-
-# If you have local changes, you might need to stash them first:
-# git stash
-# git pull origin main
-# git stash pop
-```
-
-### Step 2: Install New Dependencies
-
-This version requires additional dependencies for SQLite database support. Install them using:
-
-```bash
-# Using Bun (recommended)
-bun install
-
-# OR using Yarn
-yarn install
-
-# OR using npm
-npm install --legacy-peer-deps
-```
-
-### Step 3: Run the Migration Script
-
-Now you need to migrate your existing data from JSON files to the SQLite database:
-
-```bash
-# Using Bun
-bun scripts/migrate-json-to-db.js
-# OR (using package.json script)
-bun migrate:db
-
-# OR using Yarn
-yarn yarn:migrate:db
-
-# OR using Node.js (direct execution)
-node scripts/migrate-json-to-db.js
-```
-
-This script will:
-1. Read your existing data from `data/keys.json` and `data/settings.json`
-2. Migrate all data to the SQLite database (`data/database.db`)
-3. Preserve all your API keys, their statistics, and application settings
-4. Log the migration progress
-
-It's recommended to back up your `data` folder before migration. The script is safe to run multiple times as it will skip existing entries.
-
-### Step 4: Start the Updated Application
-
-After successful migration, start the application as usual:
-
-```bash
-# Development mode
-bun dev
-# OR
-yarn yarn:dev
-
-# OR production mode
-# Using Bun
-bun build
-bun start
-# OR
-# Using Yarn
-yarn yarn:build
-yarn yarn:start
-```
-
-The application will automatically use the database for all operations. The original JSON files will not be modified or deleted, but they will no longer be used.
-
-### Troubleshooting
-
-If you encounter any issues during migration:
-
-1. Check that the `data` directory has correct permissions
-2. Ensure your JSON files contain valid data
-3. Check the console output for specific error messages
-4. If migration fails, you can try again after fixing any issues
-
-For database issues after migration, you can check the database integrity:
-
-```bash
-# Using SQLite command line (if installed)
-sqlite3 data/database.db "PRAGMA integrity_check;"
 ```
 
 ## Development
@@ -337,12 +218,12 @@ sqlite3 data/database.db "PRAGMA integrity_check;"
 ### Project Structure
 
 ```
-load-balancer/
+google-gemini-load-balancer/
 ├── data/                        # Data storage (ensure this directory is writable by the application)
 │   └── database.db            # SQLite database for keys and settings
 ├── logs/                        # Log files (ensure this directory is writable)
 ├── scripts/                     # Utility scripts
-│   └── migrate-json-to-db.js    # Script to migrate old JSON data to SQLite
+│   └── generate-env.js        # Script to generate environment configuration
 ├── public/                      # Static assets
 ├── src/                         # Source code
 │   ├── app/                     # Next.js App Router
@@ -353,7 +234,7 @@ load-balancer/
 │   │   │   ├── logs/            # Logs API endpoint (for viewing file logs)
 │   │   │   ├── settings/        # Settings API endpoint
 │   │   │   ├── stats/           # Statistics API endpoint (DB-driven)
-│   │   │   └── v1/              # OpenAI Compatible API proxy endpoints
+│   │   │   └── v1/              # Google Gemini API proxy endpoints
 │   │   ├── dashboard/           # Dashboard page
 │   │   ├── keys/                # Key management page
 │   │   ├── logs/                # Logs viewer page

@@ -1,5 +1,5 @@
 {
-  "name": "load-balancer",
+  "name": "google-gemini-load-balancer",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -7,17 +7,10 @@
     "start": "PORT=4270 bun run next start",
     "build": "bun run next build",
     "lint": "bun run next lint",
-    "migrate:db": "bunx tsx scripts/migrate-json-to-db.js",
     "generate:env": "bunx tsx scripts/generate-env.js",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "yarn:dev": "yarn next dev",
-    "yarn:start": "yarn next start",
-    "yarn:build": "yarn next build",
-    "yarn:lint": "yarn next lint",
-    "yarn:migrate:db": "yarn tsx scripts/migrate-json-to-db.js",
-    "yarn:generate:env": "yarn tsx scripts/generate-env.js"
+    "test:coverage": "jest --coverage"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.11",

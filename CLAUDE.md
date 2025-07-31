@@ -18,12 +18,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `bun lint` - Run ESLint on codebase
 
 ### Database & Migration
-- `bun migrate:db` - Migrate existing JSON data to SQLite database
 - `bun generate:env` - Generate environment configuration
 
 ## Architecture Overview
 
-This is a Next.js App Router application that serves as an OpenAI-compatible API proxy with load balancing and key management capabilities.
+This is a Next.js App Router application that serves as a Google Gemini AI API proxy with load balancing and key management capabilities.
 
 ### Core Components
 
@@ -41,7 +40,7 @@ This is a Next.js App Router application that serves as an OpenAI-compatible API
 - Random selection
 - Least-connections (tracks active connections in memory)
 
-**API Proxy**: Next.js API routes at `/api/v1/chat/completions` proxy requests to configurable OpenAI-compatible endpoints with automatic key rotation and error handling.
+**API Proxy**: Next.js API routes at `/api/v1/chat/completions` proxy requests to Google Gemini API endpoints with automatic key rotation and error handling.
 
 ### Key Architecture Patterns
 
@@ -52,6 +51,8 @@ This is a Next.js App Router application that serves as an OpenAI-compatible API
 **Graceful Degradation**: System continues operating with remaining healthy keys when some keys fail or hit rate limits.
 
 **Comprehensive Logging**: Winston-based logging with daily rotation for request logs, error logs, and key events.
+
+**Gemini-Specific Features**: Tool call handling optimized for Gemini's XML-based tool format, with automatic conversion from JSON tool calls.
 
 ### Data Models
 

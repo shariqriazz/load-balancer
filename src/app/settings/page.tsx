@@ -39,34 +39,9 @@ const API_ENDPOINTS: ApiEndpoint[] = [
     description: 'Google AI for Developers, requires a Google AI API key'
   },
   { 
-    name: 'OpenRouter', 
-    value: 'https://openrouter.ai/api/v1',
-    description: 'Unified API platform with access to hundreds of models from multiple providers'
-  },
-  { 
-    name: 'OpenAI', 
-    value: 'https://api.openai.com/v1',
-    description: 'Standard OpenAI API endpoint for GPT models'
-  },
-  { 
-    name: 'Anthropic', 
-    value: 'https://api.anthropic.com/v1',
-    description: 'Anthropic Claude API endpoint for message-based interactions'
-  },
-  { 
-    name: 'Mistral AI', 
-    value: 'https://api.mistral.ai/v1',
-    description: 'Mistral AI API for chat completions and embeddings'
-  },
-  { 
-    name: 'Groq', 
-    value: 'https://api.groq.com/openai/v1',
-    description: 'Groq API with OpenAI-compatible interface for ultra-fast inference'
-  },
-  { 
     name: 'Custom', 
     value: 'custom',
-    description: 'Use a custom API endpoint URL'
+    description: 'Use a custom Google Gemini-compatible API endpoint URL'
   }
 ];
 
@@ -416,7 +391,7 @@ export default function SettingsPage() {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-              <p className="text-sm text-muted-foreground">Configure your load balancer behavior</p>
+              <p className="text-sm text-muted-foreground">Configure your Google Gemini load balancer behavior</p>
             </div>
 
             <div className="flex items-center gap-2">
@@ -464,7 +439,7 @@ export default function SettingsPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>System Settings</CardTitle>
-                  <CardDescription>Configure load balancer behavior</CardDescription>
+                  <CardDescription>Configure Google Gemini load balancer behavior</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-center py-10">
@@ -553,7 +528,7 @@ export default function SettingsPage() {
               <Card className="hover-animate">
                 <CardHeader>
                   <CardTitle>System Settings</CardTitle>
-                  <CardDescription>Configure load balancer behavior</CardDescription>
+                  <CardDescription>Configure Google Gemini load balancer behavior</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {isLoading ? (
@@ -681,7 +656,7 @@ export default function SettingsPage() {
                               />
                             )}
                             <div className="mt-2 text-xs text-muted-foreground space-y-1">
-                              <p>Select a pre-configured endpoint or choose &apos;Custom&apos; to enter your own</p>
+                              <p>Select the Google AI Studio endpoint or choose &apos;Custom&apos; to enter your own Gemini-compatible endpoint</p>
                               {selectedEndpoint !== 'custom' && API_ENDPOINTS.find(e => e.value === selectedEndpoint)?.description && (
                                 <p className="font-medium">{API_ENDPOINTS.find(e => e.value === selectedEndpoint)?.description}</p>
                               )}

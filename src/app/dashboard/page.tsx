@@ -322,7 +322,7 @@ export default function Dashboard() {
                       <Users className="h-5 w-5" />
                       Profile Overview
                     </CardTitle>
-                    <CardDescription>API key organization and load balancing profiles</CardDescription>
+                    <CardDescription>Google AI API key organization and load balancing profiles</CardDescription>
                   </div>
                   <div className="flex space-x-2">
                     <Button variant="outline" size="sm" onClick={fetchProfiles} disabled={profilesLoading}>
@@ -346,7 +346,7 @@ export default function Dashboard() {
                     <div className="text-center text-muted-foreground py-8 col-span-full">
                       <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
                       <p className="text-sm">No profiles found</p>
-                      <p className="text-xs mt-1">Create your first profile to organize API keys</p>
+                      <p className="text-xs mt-1">Create your first profile to organize Google AI API keys</p>
                     </div>
                   ) : (
                     profiles.map((profile) => (
@@ -416,8 +416,8 @@ export default function Dashboard() {
             <Card className="border-0 shadow-lg interactive-container hover-animate">
               <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--primary)/0.05)] via-transparent to-[hsl(var(--secondary)/0.05)] pointer-events-none" />
               <CardHeader>
-                <CardTitle>API Key Performance</CardTitle>
-                <CardDescription>Current status and usage of individual API keys.</CardDescription>
+                <CardTitle>Google AI Key Performance</CardTitle>
+                <CardDescription>Current status and usage of individual Google AI API keys.</CardDescription>
               </CardHeader>
               <CardContent>
                 <KeyStats />

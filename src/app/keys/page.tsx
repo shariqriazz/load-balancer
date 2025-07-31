@@ -505,9 +505,9 @@ function KeysPageContent() {
           {/* Header */}
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">API Keys</h1>
+              <h1 className="text-3xl font-bold tracking-tight">Google AI Keys</h1>
               <p className="text-muted-foreground">
-                Manage your API keys organized by profiles for optimal load balancing
+                Manage your Google AI API keys organized by profiles for optimal load balancing
               </p>
             </div>
             <div className="flex space-x-2">
@@ -532,9 +532,9 @@ function KeysPageContent() {
                 </DialogTrigger>
                 <DialogContent className="max-w-md">
                   <DialogHeader>
-                    <DialogTitle>Add New API Key</DialogTitle>
+                    <DialogTitle>Add New Google AI Key</DialogTitle>
                     <DialogDescription>
-                      Add a new API key to a profile for load balancing
+                      Add a new Google AI API key to a profile for load balancing
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
@@ -577,7 +577,7 @@ function KeysPageContent() {
                         <div className="mt-2 p-3 border rounded-lg bg-muted/50">
                           <div className="text-sm font-medium mb-2">Create New Profile</div>
                           <Input
-                            placeholder="Profile name (e.g., 'OpenAI Production')"
+                            placeholder="Profile name (e.g., 'Google AI Production')"
                             value={newKey.newProfileName || ''}
                             onChange={(e) => setNewKey({ ...newKey, newProfileName: e.target.value })}
                           />
@@ -585,7 +585,7 @@ function KeysPageContent() {
                       )}
                     </div>
                     <div>
-                      <Label htmlFor="key">API Key *</Label>
+                      <Label htmlFor="key">Google AI API Key *</Label>
                       <Input
                         id="key"
                         type="password"
@@ -979,7 +979,7 @@ function KeysPageContent() {
           <Dialog open={editKeyDialogOpen} onOpenChange={setEditKeyDialogOpen}>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Edit API Key</DialogTitle>
+                <DialogTitle>Edit Google AI Key</DialogTitle>
                 <DialogDescription>
                   Update the key details and settings
                 </DialogDescription>

@@ -21,14 +21,14 @@ export interface Settings {
   requestRateLimit: number; // Added: requests per minute, 0 for no limit
 }
 
-// Define DEFAULT_SETTINGS with the endpoint field
+// Define DEFAULT_SETTINGS with Gemini endpoint only
 export const DEFAULT_SETTINGS: Settings = {
   keyRotationRequestCount: 10,
   maxFailureCount: 3,
   rateLimitCooldown: 60, // 60 seconds
   logRetentionDays: 30,
   maxRetries: 3,
-  endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai', // Default endpoint
+  endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai', // Google Gemini endpoint
   failoverDelay: 2, // 2 seconds default delay before switching API on rate limited
   loadBalancingStrategy: 'round-robin', // Added
   requestRateLimit: 0, // Added: 0 means no limit by default

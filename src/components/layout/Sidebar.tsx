@@ -151,7 +151,7 @@ export default function Sidebar() {
         <div className="px-3 py-4">
           <div className={cn('mb-6 flex items-center px-2', isCollapsed ? 'justify-center' : 'justify-start')}>
             <h2 className="text-xl font-bold tracking-tight">
-              {isCollapsed ? 'L' : 'Load Balancer'}
+              {isCollapsed ? 'G' : 'Gemini Load Balancer'}
             </h2>
           </div>
 
@@ -173,7 +173,7 @@ export default function Sidebar() {
             <NavItem
               icon={Key}
               href="/keys"
-              label="API Keys"
+              label="Google AI Keys"
               isActive={pathname === '/keys' || pathname.startsWith('/keys/')}
               isCollapsed={isCollapsed}
             />
